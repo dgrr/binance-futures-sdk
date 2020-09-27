@@ -1,0 +1,9 @@
+[submodule "contrib/simdjson"]
+	path = contrib/simdjson
+	url = https://github.com/simdjson/simdjson
+[submodule "contrib/boost.url"]
+	path = contrib/boost.url
+	url = https://github.com/CPPAlliance/url
+[submodule "contrib/boost.json"]
+	path = contrib/boost.json
+	url = https://github.com/CPPAlliance/json
