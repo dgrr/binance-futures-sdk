@@ -4,11 +4,11 @@
 #include <immintrin.h>
 #include <simdjson.h>
 
-#include <boost/beast/core/flat_buffer.hpp>
-#include <chrono>
 #include <binance/common.hpp>
 #include <binance/conv.hpp>
 #include <binance/error.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
+#include <chrono>
 #include <string>
 #include <string_view>
 
@@ -25,7 +25,7 @@ public:
   parser(size_t alloc_mem = 128 * 1024)
   {
     if (parser_.allocate(alloc_mem) != simdjson::error_code::SUCCESS)  // 128 KB
-      throw "no success";  // TODO: Normalize this error
+      throw std::bad_alloc{};
   }
   parser(parser&);
   parser(parser&&);
@@ -161,7 +161,8 @@ really_inline void value_to(const object& jv, const char* key,
     json::value_to(ev, v);
 }
 
-really_inline void value_to(const object& jv, const char* key, binance::error& v)
+really_inline void value_to(const object& jv, const char* key,
+                            binance::error& v)
 {
   auto [ev, e] = jv[key];
   if (!e)
@@ -249,7 +250,6 @@ really_inline void value_to(json::array::iterator& it,
     json::value_to<ChronoScale>(*it, v);
   else
     json::value_to(*it, v);
-  // TODO: Do the same with boost. Maybe set this functions in common????
   if constexpr (sizeof...(vs) > 0)
   {
     if (++it != end)

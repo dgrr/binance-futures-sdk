@@ -43,10 +43,6 @@ public:
       , jv_(jv)
   {
   }
-  void operator()(messages::websocket_token& tok)
-  {
-    tok = jv_;
-  }
 };
 
 struct __request_elem
@@ -57,8 +53,10 @@ struct __request_elem
       std::shared_ptr<
           boost::beast::http::request<boost::beast::http::string_body>>>
       req_;
-  boost::variant2::variant<messages::get_position_mode> message_;
-  boost::variant2::variant<std::function<void(messages::get_position_mode)>>
+  boost::variant2::variant<messages::get_position_mode, messages::kline_data>
+      message_;
+  boost::variant2::variant<std::function<void(messages::get_position_mode)>,
+                           std::function<void(messages::kline_data)>>
       cb_;
 
   __request_elem(const __request_elem& other)
@@ -68,9 +66,10 @@ struct __request_elem
   {
   }
 
-  template<typename Body, typename T, typename Cb>
+  template<typename Body, typename T>
   explicit __request_elem(
-      std::shared_ptr<boost::beast::http::request<Body>> req, T& tok, Cb cb)
+      std::shared_ptr<boost::beast::http::request<Body>> req, T& tok,
+      std::function<void(T)> cb)
       : req_(req)
       , message_(tok)
       , cb_(cb)
@@ -95,9 +94,19 @@ struct __request_elem
         get<0>(cb_)(msg);
       }
       break;
+      case 1:
+      {
+        auto& msg = get<1>(message_);
+        msg       = jv;
+        get<1>(cb_)(msg);
+      }
+      break;
     }
   }
 };
+
+template<typename T>
+using DefaultHandler = std::function<void(T)>;
 
 // TODO: Maybe add compatibility with Boost 1.67 ????
 using http_stream_t =
@@ -141,7 +150,7 @@ public:
   stream(binance::io_context& ioc, auth_opts opts = {},
          const std::string& base_url = BINANCE_DEFAULT_URL,
          boost::asio::ssl::context::method method =
-             boost::asio::ssl::context::tlsv12_client);
+             boost::asio::ssl::context::tlsv13_client);
   // Connection will automatically close on destruction.
   ~stream();
   // reset ...
@@ -152,12 +161,13 @@ public:
   bool is_busy() const;
   void discard_next();
   void async_connect();
-  template<typename T, class Handler, class... Args>
-  void async_read(Handler&&, Args... args);
-  template<typename T, class Handler, class... Args>
-  void async_write(Handler&&, Args... args);
-  template<class Handler>
-  void async_read(messages::get_position_mode&, Handler&&);
+  template<typename T, class... Args>
+  void async_read(DefaultHandler<T>, Args... args);
+  template<typename T, class... Args>
+  void async_write(DefaultHandler<T>, Args... args);
+  void async_read(messages::get_position_mode&,
+                  DefaultHandler<messages::get_position_mode>);
+  void async_read(messages::kline_data&, DefaultHandler<messages::kline_data>);
 
 private:
   // update every 1h the DNS records.
@@ -176,15 +186,16 @@ private:
   really_inline void next_async_request();
   template<class T>
   really_inline void do_write(boost::beast::http::request<T>&);
-  template<class ReqBody, class Msg, class Handler, __SECURITY_CODES C>
+  template<class ReqBody, class Msg, __SECURITY_CODES C>
   void async_call(std::shared_ptr<boost::beast::http::request<ReqBody>> req,
-                  Msg& msg, Handler&& cb);
-  template<class ReqBody, __SECURITY_CODES C, class Msg, class Handler>
-  void async_get(const std::string& endpoint, Msg& msg, Handler&& cb);
-  template<class ReqBody, __SECURITY_CODES C, class Msg, class Handler>
-  void async_post(const std::string& endpoint, Msg& msg, Handler&& cb);
-  template<class ReqBody, __SECURITY_CODES C, class Msg, class Handler>
-  void async_del(const std::string& endpoint, Msg& msg, Handler&& cb);
+                  Msg& msg, DefaultHandler<Msg> cb);
+  template<class ReqBody, __SECURITY_CODES C, class Msg>
+  void async_get(const std::string& endpoint, Msg& msg, DefaultHandler<Msg> cb);
+  template<class ReqBody, __SECURITY_CODES C, class Msg>
+  void async_post(const std::string& endpoint, Msg& msg,
+                  DefaultHandler<Msg> cb);
+  template<class ReqBody, __SECURITY_CODES C, class Msg>
+  void async_del(const std::string& endpoint, Msg& msg, DefaultHandler<Msg> cb);
   template<class BodyType, class Msg, __SECURITY_CODES C>
   void prepare_request(boost::beast::http::request<BodyType>&, Msg& msg);
   really_inline void get_error_codes(binance::error&, const json::value&);
@@ -395,9 +406,12 @@ void stream::on_read(boost::system::error_code const& ec, size_t size)
   binance::error err;
   const json::value& v = parser_.parse(res.body()).root();
 
-  get_error_codes(err, v);
-  if (err)
-    throw err;
+  if (v.is_object())
+  {
+    get_error_codes(err, v);
+    if (err)
+      throw err;
+  }
 
   e(v);
   queue_.pop_front();
@@ -425,10 +439,10 @@ really_inline void stream::do_write(boost::beast::http::request<T>& req)
       *stream_, req, boost::beast::bind_front_handler(&stream::on_write, this));
 }
 
-template<class ReqBody, class Msg, class Handler, __SECURITY_CODES C>
+template<class ReqBody, class Msg, __SECURITY_CODES C>
 void stream::async_call(
     std::shared_ptr<boost::beast::http::request<ReqBody>> req, Msg& msg,
-    Handler&& cb)
+    DefaultHandler<Msg> cb)
 {
   namespace http = boost::beast::http;
 #ifdef BINANCE_DEBUG
@@ -441,67 +455,79 @@ void stream::async_call(
   if constexpr (!std::is_same_v<ReqBody, http::empty_body>)
     req->set(http::field::content_length, req->body().size());
 
-  queue_.emplace_back(req, msg, cb);
+  queue_.emplace_back(req, msg, std::move(cb));
 
   next_async_request();
 }
 
-template<class ReqBody, __SECURITY_CODES C, class Msg, class Handler>
-void stream::async_get(const std::string& endpoint, Msg& msg, Handler&& cb)
+template<class ReqBody, __SECURITY_CODES C, class Msg>
+void stream::async_get(const std::string& endpoint, Msg& msg,
+                       DefaultHandler<Msg> cb)
 {
   namespace http = boost::beast::http;
   // TODO: Remove the pointer from here
   auto req =
       std::make_shared<http::request<ReqBody>>(http::verb::get, endpoint, 11);
 
-  async_call<ReqBody, Msg, Handler, C>(req, msg, cb);
+  async_call<ReqBody, Msg, C>(req, msg, cb);
 }
 
-template<class ReqBody, __SECURITY_CODES C, class Msg, class Handler>
-void stream::async_del(const std::string& endpoint, Msg& msg, Handler&& cb)
+template<class ReqBody, __SECURITY_CODES C, class Msg>
+void stream::async_del(const std::string& endpoint, Msg& msg,
+                       DefaultHandler<Msg> cb)
 {
   namespace http = boost::beast::http;
   auto req       = std::make_shared<http::request<ReqBody>>(http::verb::delete_,
                                                       endpoint, 11);
 
-  async_call<ReqBody, Msg, Handler, C>(req, msg, cb);
+  async_call<ReqBody, Msg, C>(req, msg, cb);
 }
 
-template<class ReqBody, __SECURITY_CODES C, class Msg, class Handler>
-void stream::async_post(const std::string& endpoint, Msg& m, Handler&& cb)
+template<class ReqBody, __SECURITY_CODES C, class Msg>
+void stream::async_post(const std::string& endpoint, Msg& m,
+                        DefaultHandler<Msg> cb)
 {
   namespace http = boost::beast::http;
   auto req =
       std::make_shared<http::request<ReqBody>>(http::verb::post, endpoint, 11);
   Msg msg(m);
 
-  async_call<ReqBody, Msg, Handler, C>(req, msg, cb);
+  async_call<ReqBody, Msg, C>(req, msg, cb);
 }
 
-template<typename T, class Handler, class... Args>
-void stream::async_read(Handler&& cb, Args... args)
+template<typename T, class... Args>
+void stream::async_read(DefaultHandler<T> cb, Args... args)
 {
   T v(std::forward<Args>(args)...);
-  async_read(v, cb);
+  async_read(v, std::move(cb));
 }
 
-template<typename T, class Handler, class... Args>
-void stream::async_write(Handler&& cb, Args... args)
+template<typename T, class... Args>
+void stream::async_write(DefaultHandler<T> cb, Args... args)
 {
   T v(std::forward<Args>(args)...);
-  async_write(v, cb);
+  async_write(v, std::move(cb));
 }
 
-template<class Handler>
-void stream::async_read(messages::get_position_mode& msg, Handler&& cb)
+void stream::async_read(messages::get_position_mode& msg,
+                        DefaultHandler<messages::get_position_mode> cb)
 {
   namespace http = boost::beast::http;
   msg.insert_kv({"timestamp", string_milli_epoch()});
   async_get<http::empty_body, __SECURITY_CODES::USER_DATA>(
-      "/fapi/v1/positionSide/dual", msg, cb);
+      "/fapi/v1/positionSide/dual", msg, std::move(cb));
 }
 
-really_inline void stream::get_error_codes(binance::error& ec, const json::value& jv)
+void stream::async_read(messages::kline_data& msg,
+                        DefaultHandler<messages::kline_data> cb)
+{
+  namespace http = boost::beast::http;
+  async_get<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/klines", msg,
+                                                      std::move(cb));
+}
+
+really_inline void stream::get_error_codes(binance::error& ec,
+                                           const json::value& jv)
 {
   int code = 0;
   json::value_to(jv, "code", code);

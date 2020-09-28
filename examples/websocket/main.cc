@@ -32,7 +32,7 @@ public:
       : ws_(ws)
   {
     using namespace binance::websocket;
-    ws_.subscribe(subscribe_to::agg_trade("btcusdt"));
+    ws_.subscribe(subscribe_to::kline("btcusdt", "1m"));
   }
 
   void start()
@@ -49,24 +49,16 @@ private:
       if (ec)
         throw ec;
 
-      std::cout << boost::beast::buffers_to_string(buffer_.data()) << std::endl;
-      read();
-      return;
-
-      const auto& root      = parser_.parse(buffer_).root();
-      std::string_view type = root["type"];
-
-      if (type != "message")
+      binance::websocket::messages::kline kl;
+      const binance::json::object& data = parser_.parse(buffer_).root();
+      auto k                            = data["k"];
+      if (k.error() == simdjson::SUCCESS)
       {
-        read();
-        return;
+        kl = k;
+
+        std::cout << (kl.closed ? "CLOSED: " : "OPEN: ") << kl.open_price
+                  << " | " << kl.trades << std::endl;
       }
-
-      binance::websocket::messages::match msg;
-      msg = root["data"];
-
-      std::cout << msg.symbol << " (" << msg.side << "): " << msg.price << " | "
-                << msg.size << std::endl;
 
       read();
     });
@@ -91,9 +83,6 @@ int main(int argc, char* argv[])
 
   binance::io_context ioc;
   binance::websocket::stream ws(ioc);
-  ws.connect();
-
-  std::make_shared<WebSocket>(ws)->start();
 
   // handle signals and stop processing when SIGINT is received
   boost::asio::signal_set signals(ioc, SIGINT);
@@ -105,6 +94,10 @@ int main(int argc, char* argv[])
 
   try
   {
+    ws.connect();
+
+    std::make_shared<WebSocket>(ws)->start();
+
     ioc.run();
   }
   catch (const binance::error& ec)

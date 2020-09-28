@@ -1,10 +1,10 @@
 #include <algorithm>
+#include <binance.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <config.hpp>
 #include <iostream>
-#include <binance.hpp>
 
 void parse_args(int argc, char* argv[],
                 boost::program_options::options_description& desc,
@@ -40,16 +40,19 @@ int main(int argc, char* argv[])
 
   binance::io_context ioc;
   binance::http::stream api(ioc, {cnf.api_key, cnf.api_secret},
-                           args["url"].as<std::string>());
+                            args["url"].as<std::string>());
 
   std::cout << "Connecting to " << args["url"].as<std::string>() << std::endl;
 
   api.async_connect();
-  api.async_read<binance::http::messages::get_position_mode>(
-      [&api](const auto& k) {
-        std::cout << k.dual_position << std::endl;
-        api.close();
-      });
+  binance::http::messages::kline_data kd("btcusdt", "1m");
+  api.async_read(kd, [&api](const auto& kd) {
+    for (auto& k : kd.klines)
+    {
+      std::cout << "open: " << k.open << std::endl;
+    }
+    api.close();
+  });
 
   try
   {

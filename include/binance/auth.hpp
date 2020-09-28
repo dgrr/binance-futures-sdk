@@ -13,6 +13,7 @@ private:
 public:
   std::string key;
   std::string secret;
+
   auth_opts()
       : empty_(true)
   {

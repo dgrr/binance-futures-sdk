@@ -31,21 +31,27 @@ public:
   }
 };
 
-class agg_trade : public topic_path
+struct agg_trade : public topic_path
 {
-public:
   agg_trade() = delete;
   agg_trade(const std::string& symbol)
       : topic_path(symbol, "@aggTrade")
   {
   }
 };
-class mark_price : public topic_path
+struct mark_price : public topic_path
 {
-public:
   mark_price() = delete;
   mark_price(const std::string& symbol, const std::string& ts = "@1s")
       : topic_path(symbol, "@markPrice" + ts)
+  {
+  }
+};
+struct kline : public topic_path
+{
+  kline() = delete;
+  kline(const std::string& symbol, const std::string& interval)
+      : topic_path(symbol, "@kline_" + interval)
   {
   }
 };

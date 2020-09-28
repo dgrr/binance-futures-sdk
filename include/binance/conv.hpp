@@ -110,7 +110,7 @@ public:
     for (; size >= 8; i += 8, r_index += 16, size -= 8)
     {
       __m128i _r, _dh, _dl;                                    // result
-      __m128i _data = _mm_loadu_si64((void const*) &data[i]);  // data
+      __m128i _data = _mm_loadu_si64((void const*) &data[i]);  // read 8 bytes
 
       _dh = _mm_srli_epi16(_data, 4);       // shift right 4 bits
       _dh = _mm_and_si128(_dh, _s);         // remove higher bits

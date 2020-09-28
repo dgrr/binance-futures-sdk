@@ -76,6 +76,63 @@ struct get_position_mode : public query_args
     return *this;
   }
 };
+// https://binance-docs.github.io/apidocs/futures/en/#kline-candlestick-data
+struct kline_data : public query_args
+{
+  struct kline
+  {
+    time_point_t open_time;
+    double open;
+    double high;
+    double low;
+    double close;
+    double volume;
+    time_point_t close_time;
+    double quote_volume;
+    int64_t trades;
+    double taker_base_vol;
+    double taker_quote_vol;
+    kline& operator=(const json::array& jb)
+    {
+      json::value_to(jb, open_time, open, high, low, close, volume, close_time,
+                     quote_volume, trades, taker_base_vol, taker_quote_vol);
+      return *this;
+    }
+  };
+
+  std::vector<kline> klines;
+
+  // TODO: Interval to ENUM
+  kline_data(const std::string& symbol, const std::string& interval)
+      : query_args{{"symbol", symbol}, {"interval", interval}}
+  {
+  }
+  kline_data& set_start_time(size_t start)
+  {
+    insert_kv({"startTime", start});
+    return *this;
+  }
+  kline_data& set_end_time(size_t end)
+  {
+    insert_kv({"endTime", end});
+    return *this;
+  }
+  kline_data& set_interval(const std::string& interval)
+  {
+    insert_kv({"interval", interval});
+    return *this;
+  }
+  kline_data& set_limit(size_t limit)
+  {
+    insert_kv({"limit", limit});
+    return *this;
+  }
+  kline_data& operator=(const json::array& jb)
+  {
+    json::value_to(jb, klines);
+    return *this;
+  }
+};
 // https://docs.binance.com/futures/#place-an-order
 struct place_limit_order : public query_args
 {
@@ -283,38 +340,6 @@ struct cancel_order : public query_args
   cancel_order& operator=(const json::object& jb)
   {
     json::value_to(jb, "cancelledOrderIds", canceled);
-    return *this;
-  }
-};
-// TODO:
-struct websocket_token
-{
-  struct server
-  {
-    int64_t ping_interval;
-    std::string endpoint;
-    std::string protocol;
-    bool encrypt;
-    int64_t ping_timeout;
-    server& operator=(const json::object& jb)
-    {
-      json::value_to(jb, "pingInterval", ping_interval);
-      json::value_to(jb, "endpoint", endpoint);
-      json::value_to(jb, "protocol", protocol);
-      json::value_to(jb, "encrypt", encrypt);
-      json::value_to(jb, "pingTimeout", ping_timeout);
-      return *this;
-    }
-  };
-  std::vector<server> servers;
-  std::string token;
-
-  explicit websocket_token() = default;
-
-  websocket_token& operator=(const json::object& jb)
-  {
-    json::value_to(jb, "token", token);
-    json::value_to(jb, "instanceServers", servers);
     return *this;
   }
 };
