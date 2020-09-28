@@ -1,12 +1,12 @@
 #ifndef BINANCE_CONV_HPP
 #define BINANCE_CONV_HPP
 
+#include <immintrin.h>
+
 #include <binance/common.hpp>
 #include <binance/error.hpp>
 #include <string>
 #include <string_view>
-
-#include <immintrin.h>
 
 namespace binance
 {
@@ -71,13 +71,13 @@ really_inline double parse_float(const std::string& s)
 }
 
 static const unsigned char __hex_chars[16]   = {'0', '1', '2', '3', '4', '5',
-                                            '6', '7', '8', '9', 'a', 'b',
-                                            'c', 'd', 'e', 'f'};
+                                              '6', '7', '8', '9', 'a', 'b',
+                                              'c', 'd', 'e', 'f'};
 static const unsigned char __blend_table[32] = {
     0, 128, 0, 128, 0, 128, 0, 128, 0, 128, 0, 128, 0, 128, 0, 128,
     0, 128, 0, 128, 0, 128, 0, 128, 0, 128, 0, 128, 0, 128, 0, 128};
 static const unsigned char __dup_index[16] = {0, 0, 1, 1, 2, 2, 3, 3,
-                                            4, 4, 5, 5, 6, 6, 7, 7};
+                                              4, 4, 5, 5, 6, 6, 7, 7};
 
 class hex
 {
@@ -109,8 +109,8 @@ public:
     size_t i = 0;
     for (; size >= 8; i += 8, r_index += 16, size -= 8)
     {
-      __m128i _r, _dh, _dl;                                        // result
-      __m128i _data = _mm_loadu_si128((__m128i const*) &data[i]);  // data
+      __m128i _r, _dh, _dl;                                    // result
+      __m128i _data = _mm_loadu_si64((void const*) &data[i]);  // data
 
       _dh = _mm_srli_epi16(_data, 4);       // shift right 4 bits
       _dh = _mm_and_si128(_dh, _s);         // remove higher bits
