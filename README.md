@@ -7,8 +7,6 @@ no weird WebSocket libraries. Only Boost (and simdjson).
 * [Features](#Features)
 * [HTTP(s) API](#http-api-client)
 * [WebSocket](#websocket)
-  * [Restrictions](#restrictions)
-  * [Multiplex](#multiplex)
 * [OS Signals](#handling-os-signals)
 * [Build examples](#buid-examples)
 
@@ -19,6 +17,12 @@ no weird WebSocket libraries. Only Boost (and simdjson).
   By default, Boost.ASIO doesn't support sending multiple requests at the same time.
   This library queues the request internally so you don't need to queue the request
   in your code.
+  
+* SIMD boosted.
+
+  The library uses [simdjson](https://github.com/simdjson/simdjson) as json parser.
+  Also, it does contain many other SIMD improvements like [string to int conversion](https://github.com/dgrr/binance-futures-sdk/blob/master/include/binance/conv.hpp#L15)
+  and [decimal to hexadecimal conversion](https://github.com/dgrr/binance-futures-sdk/blob/master/include/binance/conv.hpp#L103) (the latter reuses the string buffer).
 
 ## HTTP API client
 
