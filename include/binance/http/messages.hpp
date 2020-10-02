@@ -92,10 +92,11 @@ struct kline_data : public query_args
     int64_t trades;
     double taker_base_vol;
     double taker_quote_vol;
-    kline& operator=(const json::array& jb)
+    kline& operator=(const json::array& jr)
     {
-      json::value_to(jb, open_time, open, high, low, close, volume, close_time,
-                     quote_volume, trades, taker_base_vol, taker_quote_vol);
+      json::value_to(jr.begin(), jr.end(), open_time, open, high, low, close,
+                     volume, close_time, quote_volume, trades, taker_base_vol,
+                     taker_quote_vol);
       return *this;
     }
   };

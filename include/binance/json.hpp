@@ -230,6 +230,20 @@ really_inline void value_to(const json::object& jb, const char* key,
 }
 
 template<class T>
+really_inline void value_to(const json::array& jr, std::vector<T>& v,
+                            const std::string& s)
+{
+  v.resize(jr.size());
+  auto it = v.begin();
+
+  for (const json::object& e : jr)
+  {
+    (*it) = e[s];
+    ++it;
+  }
+}
+
+template<class T>
 really_inline void value_to(const json::array& jr, std::vector<T>& v)
 {
   v.resize(jr.size());
@@ -243,8 +257,8 @@ really_inline void value_to(const json::array& jr, std::vector<T>& v)
 }
 
 template<class ChronoScale = std::chrono::milliseconds, class T, class... Args>
-really_inline void value_to(json::array::iterator& it,
-                            const json::array::iterator& end, T& v, Args&... vs)
+really_inline void value_to(json::array::iterator it,
+                            const json::array::iterator end, T& v, Args&... vs)
 {
   if constexpr (std::is_same_v<T, time_point_t>)
     json::value_to<ChronoScale>(*it, v);
@@ -257,12 +271,13 @@ really_inline void value_to(json::array::iterator& it,
   }
 }
 
-// TODO: Does this collision with value_to(json::array&, std::vector<T> ...) ?
+// TODO: Try to replace json::array::iterators with json::array. Thus, avoiding
+// SFINAE for the std::vector functions
 template<class ChronoScale = std::chrono::milliseconds, class... Args>
-really_inline void value_to(const json::array& jr, Args&... vs)
+really_inline void value_to(json::array::iterator it, json::array::iterator end,
+                            Args&... vs)
 {
-  auto it = jr.begin();
-  value_to<ChronoScale>(it, jr.end(), std::forward<Args&>(vs)...);
+  value_to<ChronoScale>(it, end, std::forward<Args&>(vs)...);
 }
 }  // namespace json
 }  // namespace binance
