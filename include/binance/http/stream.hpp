@@ -637,6 +637,8 @@ void stream::prepare_request(boost::beast::http::request<BodyType>& req,
   req.set(http::field::host, base_url_.host());
   req.set(http::field::user_agent, BINANCE_VERSION_STRING);
   req.set(http::field::connection, "keep-alive");
+  if constexpr (std::is_same<BodyType, http::string_body>::value)
+    req.set(http::field::content_type, "application/x-www-form-urlencoded");
 
   std::string target = req.target().to_string();
   std::string query;

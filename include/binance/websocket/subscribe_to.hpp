@@ -145,6 +145,15 @@ struct partial_book_depth : public topic_path
   }
 };
 // https://binance-docs.github.io/apidocs/futures/en/#diff-book-depth-streams
+struct book_depth : public topic_path
+{
+  book_depth() = delete;
+  book_depth(const std::string& symbol, int ms = 0)
+      : topic_path(
+          symbol, "@depth" + (ms == 0 ? "" : ("@" + std::to_string(ms) + "ms")))
+  {
+  }
+};
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-info-streams
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-nav-kline-candlestick-streams
 }  // namespace subscribe_to

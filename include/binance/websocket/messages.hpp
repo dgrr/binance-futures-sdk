@@ -244,26 +244,26 @@ struct liq_order_all
     return *this;
   }
 };
+struct price_point
+{
+  double price;
+  double qty;
+  price_point& operator=(const json::array& jr)
+  {
+    json::value_to(jr.begin(), jr.end(), price, qty);
+    return *this;
+  }
+};
 // https://binance-docs.github.io/apidocs/futures/en/#partial-book-depth-streams
 struct partial_book_depth
 {
-  struct partial_book
-  {
-    double price_level;
-    double qty;
-    partial_book& operator=(const json::array& jr)
-    {
-      json::value_to(jr.begin(), jr.end(), price_level, qty);
-      return *this;
-    }
-  };
   std::string_view event_type;  // e
   std::string_view symbol;      // s
   time_point_t event_time;      // E
   time_point_t x_time;          // T
   // TODO: What is U and u and pu
-  std::vector<partial_book> bids;  // b
-  std::vector<partial_book> asks;  // a
+  std::vector<price_point> bids;  // b
+  std::vector<price_point> asks;  // a
   partial_book_depth& operator=(const json::object& jb)
   {
     _value_to("e", event_type);
@@ -276,6 +276,32 @@ struct partial_book_depth
   }
 };
 // https://binance-docs.github.io/apidocs/futures/en/#diff-book-depth-streams
+struct book_depth
+{
+  std::string_view event_type;    // e
+  std::string_view symbol;        // s
+  time_point_t event_time;        // E
+  time_point_t x_time;            // T
+  int64_t first_id;               // U
+  int64_t final_id;               // u
+  int64_t last_final_id;          // pu
+  std::vector<price_point> bids;  // b
+  std::vector<price_point> asks;  // a
+
+  book_depth& operator=(const json::object& jb)
+  {
+    _value_to("e", event_type);
+    _value_to("s", symbol);
+    _value_to("E", event_time);
+    _value_to("T", x_time);
+    _value_to("U", first_id);
+    _value_to("u", final_id);
+    _value_to("pu", last_final_id);
+    _value_to("b", bids);
+    _value_to("a", asks);
+    return *this;
+  }
+};
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-info-streams
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-nav-kline-candlestick-streams
 // https://binance-docs.github.io/apidocs/futures/en/#event-user-data-stream-expired
