@@ -344,6 +344,27 @@ struct cancel_order : public query_args
     return *this;
   }
 };
+// https://binance-docs.github.io/apidocs/futures/en/#start-user-data-stream-user_stream
+struct listen_key : public query_args
+{
+  std::string key;
+
+  listen_key()        = default;
+  listen_key& operator=(const json::object& jb)
+  {
+    json::value_to(jb, "listenKey", key);
+    return *this;
+  }
+};
+struct empty_args : public query_args
+{
+  empty_args()        = default;
+  empty_args& operator=(const json::value& v)
+  {
+    boost::ignore_unused(v);
+    return *this;
+  }
+};
 }  // namespace messages
 }  // namespace http
 }  // namespace binance

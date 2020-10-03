@@ -11,6 +11,7 @@ namespace websocket
 {
 namespace subscribe_to
 {
+// TODO: Improve topic_path arguments
 class topic_path
 {
 protected:
@@ -138,10 +139,9 @@ struct liq_order_all : public topic_path
 struct partial_book_depth : public topic_path
 {
   partial_book_depth() = delete;
-  partial_book_depth(const std::string& symbol, std::string& speed)
-      : topic_path(symbol, "@depth" + speed)
+  partial_book_depth(const std::string& symbol, const std::string& depth)
+      : topic_path(symbol, "@depth" + depth)
   {
-  
   }
 };
 // https://binance-docs.github.io/apidocs/futures/en/#diff-book-depth-streams

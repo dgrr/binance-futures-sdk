@@ -9,21 +9,6 @@ namespace websocket
 {
 namespace messages
 {
-struct head
-{
-  std::string_view type;
-  time_point_t event_time;
-  std::string_view symbol;
-
-  head()        = default;
-  head& operator=(const json::object& jb)
-  {
-    json::value_to(jb, "e", type);
-    json::value_to(jb, "E", event_time);
-    json::value_to(jb, "s", symbol);
-    return *this;
-  }
-};
 // https://binance-docs.github.io/apidocs/futures/en/#mark-price-stream
 struct mark_price
 {
@@ -259,9 +244,40 @@ struct liq_order_all
   }
 };
 // https://binance-docs.github.io/apidocs/futures/en/#partial-book-depth-streams
+struct partial_book_depth
+{
+  struct partial_book
+  {
+    double price_level;
+    double qty;
+    partial_book& operator=(const json::array& jr)
+    {
+      json::value_to(jr.begin(), jr.end(), price_level, qty);
+      return *this;
+    }
+  };
+  std::string_view event_type;  // e
+  std::string_view symbol;      // s
+  time_point_t event_time;      // E
+  time_point_t x_time;          // T
+  // TODO: What is U and u and pu
+  std::vector<partial_book> bids;  // b
+  std::vector<partial_book> asks;  // a
+  partial_book_depth& operator=(const json::object& jb)
+  {
+    json::value_to(jb, "e", event_type);
+    json::value_to(jb, "s", symbol);
+    json::value_to(jb, "E", event_time);
+    json::value_to(jb, "T", x_time);
+    json::value_to(jb, "b", bids);
+    json::value_to(jb, "a", asks);
+    return *this;
+  }
+};
 // https://binance-docs.github.io/apidocs/futures/en/#diff-book-depth-streams
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-info-streams
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-nav-kline-candlestick-streams
+// https://binance-docs.github.io/apidocs/futures/en/#event-user-data-stream-expired
 }  // namespace messages
 }  // namespace websocket
 }  // namespace binance

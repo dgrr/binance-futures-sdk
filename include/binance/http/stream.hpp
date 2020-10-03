@@ -53,10 +53,13 @@ struct __request_elem
       std::shared_ptr<
           boost::beast::http::request<boost::beast::http::string_body>>>
       req_;
-  boost::variant2::variant<messages::get_position_mode, messages::kline_data>
+  boost::variant2::variant<messages::get_position_mode, messages::kline_data,
+                           messages::listen_key, messages::empty_args>
       message_;
   boost::variant2::variant<std::function<void(messages::get_position_mode)>,
-                           std::function<void(messages::kline_data)>>
+                           std::function<void(messages::kline_data)>,
+                           std::function<void(messages::listen_key)>,
+                           std::function<void(messages::empty_args)>>
       cb_;
 
   __request_elem(const __request_elem& other)
@@ -101,6 +104,20 @@ struct __request_elem
         get<1>(cb_)(msg);
       }
       break;
+      case 2:
+      {
+        auto& msg = get<2>(message_);
+        msg       = jv;
+        get<2>(cb_)(msg);
+      }
+      break;
+      case 3:
+      {
+        auto& msg = get<3>(message_);
+        msg       = jv;
+        get<3>(cb_)(msg);
+      }
+      break;
     }
   }
 };
@@ -136,7 +153,7 @@ class stream
   boost::beast::flat_buffer buffer_;
   json::parser parser_;
 
-  std::vector<boost::asio::deadline_timer> timers_;
+  std::list<boost::asio::deadline_timer> timers_;
 
   bool is_open_;
   std::list<__request_elem> queue_;
@@ -168,6 +185,11 @@ public:
   void async_read(messages::get_position_mode&,
                   DefaultHandler<messages::get_position_mode>);
   void async_read(messages::kline_data&, DefaultHandler<messages::kline_data>);
+  void async_read(messages::listen_key&, DefaultHandler<messages::listen_key>);
+
+  // renew_listen_key sets up a timer to renew the listen_key automatically
+  // for the WebSocket User Data Streams.
+  void renew_listen_key();
 
 private:
   // update every 1h the DNS records.
@@ -196,6 +218,8 @@ private:
                   DefaultHandler<Msg> cb);
   template<class ReqBody, __SECURITY_CODES C, class Msg>
   void async_del(const std::string& endpoint, Msg& msg, DefaultHandler<Msg> cb);
+  template<class ReqBody, __SECURITY_CODES C, class Msg>
+  void async_put(const std::string& endpoint, Msg& msg, DefaultHandler<Msg> cb);
   template<class BodyType, class Msg, __SECURITY_CODES C>
   void prepare_request(boost::beast::http::request<BodyType>&, Msg& msg);
   really_inline void get_error_codes(binance::error&, const json::value&);
@@ -258,15 +282,12 @@ bool stream::is_open() const
 
 void stream::clear_timers()
 {
-  for (auto it = timers_.begin(); it != timers_.end();)
+  for (auto it = timers_.begin(); it != timers_.end(); ++it)
   {
     if (it->expires_at() < boost::posix_time::second_clock::local_time())
     {
       timers_.erase(it);
-      it = timers_.begin();
     }
-    else
-      ++it;
   }
 }
 
@@ -340,6 +361,30 @@ void stream::resolve_timer()
   });
 }
 
+void stream::renew_listen_key()
+{
+  timers_.emplace_back(ioc_);
+
+  auto& timer = timers_.back();
+  timer.expires_from_now(boost::posix_time::minutes(59));
+  timer.async_wait([this](boost::system::error_code ec) {
+    if (ec)
+      return;
+
+    namespace http = boost::beast::http;
+
+    messages::empty_args e;
+    DefaultHandler<messages::empty_args> f = [this](messages::empty_args e) {
+      boost::ignore_unused(e);
+      renew_listen_key();
+    };
+
+    async_put<http::empty_body, __SECURITY_CODES::USER_DATA>(
+        "/fapi/v1/listenKey", e, std::move(f));
+    clear_timers();
+  });
+}
+
 void stream::connect_timer()
 {
   timers_.emplace_back(ioc_);
@@ -371,7 +416,7 @@ void stream::on_connect(boost::system::error_code const& ec,
   is_open_ = true;
 
   next_async_request();
-  connect_timer();
+  // connect_timer();
 }
 
 void stream::on_write(boost::system::error_code const& ec, size_t size)
@@ -392,6 +437,7 @@ void stream::on_write(boost::system::error_code const& ec, size_t size)
 void stream::on_read(boost::system::error_code const& ec, size_t size)
 {
   namespace http = boost::beast::http;
+
   boost::ignore_unused(size);
   is_writing_ = false;
   if (ec)
@@ -416,7 +462,15 @@ void stream::on_read(boost::system::error_code const& ec, size_t size)
   e(v);
   queue_.pop_front();
 
-  next_async_request();
+  auto it = res.base().find("Connection");
+  if (it != res.base().end() && it->value() == "close")
+  {
+    async_connect();  // reconnect
+  }
+  else
+  {
+    next_async_request();
+  }
 }
 
 really_inline void stream::next_async_request()
@@ -468,6 +522,17 @@ void stream::async_get(const std::string& endpoint, Msg& msg,
   // TODO: Remove the pointer from here
   auto req =
       std::make_shared<http::request<ReqBody>>(http::verb::get, endpoint, 11);
+
+  async_call<ReqBody, Msg, C>(req, msg, cb);
+}
+
+template<class ReqBody, __SECURITY_CODES C, class Msg>
+void stream::async_put(const std::string& endpoint, Msg& msg,
+                       DefaultHandler<Msg> cb)
+{
+  namespace http = boost::beast::http;
+  auto req =
+      std::make_shared<http::request<ReqBody>>(http::verb::put, endpoint, 11);
 
   async_call<ReqBody, Msg, C>(req, msg, cb);
 }
@@ -526,6 +591,14 @@ void stream::async_read(messages::kline_data& msg,
                                                       std::move(cb));
 }
 
+void stream::async_read(messages::listen_key& msg,
+                        DefaultHandler<messages::listen_key> cb)
+{
+  namespace http = boost::beast::http;
+  async_post<http::empty_body, __SECURITY_CODES::USER_STREAM>(
+      "/fapi/v1/listenKey", msg, std::move(cb));
+}
+
 really_inline void stream::get_error_codes(binance::error& ec,
                                            const json::value& jv)
 {
@@ -567,6 +640,7 @@ void stream::prepare_request(boost::beast::http::request<BodyType>& req,
 
   req.set(http::field::host, base_url_.host());
   req.set(http::field::user_agent, BINANCE_VERSION_STRING);
+  req.set(http::field::connection, "keep-alive");
 
   std::string target = req.target().to_string();
   std::string query;

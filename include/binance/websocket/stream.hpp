@@ -44,10 +44,7 @@ public:
   stream(binance::io_context& ioc);
   ~stream();
 
-  uint64_t id() const
-  {
-    return id_;
-  }
+  uint64_t id() const;
   // closes the connection gracefully.
   really_inline void close();
   // connect creates a new connection
@@ -55,34 +52,20 @@ public:
   // if you call connect with the connection open,
   // the current connection will close.
   void connect();
+  // connect creates a new connection and subscribes
+  // the websocket connection to the user data streams
+  // using the listen_key.
+  void connect(const std::string& listen_key);
   // returns true if the stream is open, false otherwise
   really_inline operator bool() const;
   void subscribe(const std::vector<std::string>&);
   // subscribe to a topic
   template<typename... Topic>
-  void subscribe(Topic... topics)
-  {
-    std::vector<std::string> vs;
-    vs.resize(sizeof...(topics));
-
-    size_t i = 0;
-    ((vs[i++] = topics.topic()), ...);
-
-    subscribe(vs);
-  }
+  void subscribe(Topic... topics);
   // unsubscribe from a topic
   void unsubscribe(const std::vector<std::string>&);
   template<typename... Topic>
-  void unsubscribe(Topic... topics)
-  {
-    std::vector<std::string> vs;
-    vs.resize(sizeof...(topics));
-
-    size_t i = 0;
-    ((vs[i++] = topics.topic()), ...);
-
-    unsubscribe(vs);
-  }
+  void unsubscribe(Topic... topics);
 
   template<class Cb>
   really_inline void async_read(binance::buffer& buffer, Cb&& cb)
@@ -97,6 +80,8 @@ public:
   }
 
 private:
+  void connect(const std::string& endpoint,
+               boost::asio::ssl::verify_mode v_mode);
   void on_control_frame(boost::beast::websocket::frame_type,
                         boost::string_view);
   really_inline void reset();
@@ -113,6 +98,35 @@ stream::~stream()
 {
   if (stream_)
     close();
+}
+
+uint64_t stream::id() const
+{
+  return id_;
+}
+
+template<typename... Topic>
+void stream::subscribe(Topic... topics)
+{
+  std::vector<std::string> vs;
+  vs.resize(sizeof...(topics));
+
+  size_t i = 0;
+  ((vs[i++] = topics.topic()), ...);
+
+  subscribe(vs);
+}
+
+template<typename... Topic>
+void stream::unsubscribe(Topic... topics)
+{
+  std::vector<std::string> vs;
+  vs.resize(sizeof...(topics));
+
+  size_t i = 0;
+  ((vs[i++] = topics.topic()), ...);
+
+  unsubscribe(vs);
 }
 
 void stream::close()
@@ -133,6 +147,17 @@ void stream::reset()
 
 void stream::connect()
 {
+  connect("/ws/", boost::asio::ssl::verify_none);
+}
+
+void stream::connect(const std::string& listen_key)
+{
+  connect("/ws/" + listen_key, boost::asio::ssl::verify_none);
+}
+
+void stream::connect(const std::string& endpoint,
+                     boost::asio::ssl::verify_mode v_mode)
+{
   reset();
 
   namespace beast     = boost::beast;      // from <boost/beast.hpp>
@@ -143,8 +168,6 @@ void stream::connect()
   using tcp           = boost::asio::ip::tcp;  // from <boost/asio/ip/tcp.hpp>
 
   tcp::resolver resolver{ioc_};
-
-  // TODO: Too many to_string in this code.
   std::string host = BINANCE_WS_HOST;
   std::string port = "443";
 
@@ -169,7 +192,7 @@ void stream::connect()
     throw binance::error{ec};
   }
 
-  stream_->next_layer().set_verify_mode(ssl::verify_none);
+  stream_->next_layer().set_verify_mode(v_mode);
   if (!::SSL_set_tlsext_host_name(stream_->next_layer().native_handle(),
                                   host.c_str()))
   {
@@ -197,7 +220,7 @@ void stream::connect()
         req.set(http::field::user_agent, BINANCE_VERSION_STRING);
       }));
 
-  stream_->handshake(host, "/ws/", ec);
+  stream_->handshake(host, endpoint, ec);
   stream_->control_callback(
       boost::beast::bind_front_handler(&stream::on_control_frame, this));
   if (ec)
@@ -207,17 +230,6 @@ void stream::connect()
 #endif
     throw binance::error{ec};
   }
-
-  // read the welcome message
-  //   beast::flat_buffer buffer;
-  //   stream_->read(buffer, ec);
-  //   if (ec)
-  //   {
-  // #ifdef BINANCE_DEBUG
-  //     std::cout << "error reading welcome message: " << ec << std::endl;
-  // #endif
-  //     throw binance::error{ec};
-  //   }
 }
 
 void stream::on_control_frame(boost::beast::websocket::frame_type frame,
@@ -242,12 +254,11 @@ void stream::subscribe(const std::vector<std::string>& topics)
   boost::json::object jv = {
       {"method", "SUBSCRIBE"}, {"params", topics}, {"id", id_++}};
 
-  std::cout << boost::json::serialize(jv) << std::endl;
-
   stream_->async_write(boost::asio::buffer(boost::json::serialize(jv)),
                        [](boost::system::error_code const& ec, std::size_t n) {
                          boost::ignore_unused(n);
-                         std::cout << ec << std::endl;
+                         if (ec)
+                           throw ec;
                        });
 }
 
@@ -259,7 +270,8 @@ void stream::unsubscribe(const std::vector<std::string>& topics)
   stream_->async_write(boost::asio::buffer(boost::json::serialize(jv)),
                        [](boost::system::error_code const& ec, std::size_t n) {
                          boost::ignore_unused(n);
-                         boost::ignore_unused(ec);
+                         if (ec)
+                           throw ec;
                        });
 }
 }  // namespace websocket
