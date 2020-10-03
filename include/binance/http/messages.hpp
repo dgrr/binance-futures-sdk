@@ -243,7 +243,7 @@ struct mark_price : public query_args
     _value_to("markPrice", price);
     _value_to("indexPrice", index_price);
     _value_to("lastFundingRate", last_funding_rate);
-    _value_to("nextFundingRate", next_funding_rate);
+    _value_to("nextFundingTime", next_funding_time);
     _value_to("time", time);
     return *this;
   }
