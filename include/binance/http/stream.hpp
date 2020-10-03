@@ -49,6 +49,14 @@ template<typename Arg>
 struct _function : public std::function<void(Arg)>
 {
   using arg_type = Arg;
+  _function(std::function<void(Arg)>& cb)
+      : std::function<void(Arg)>(cb)
+  {
+  }
+  _function(std::function<void(Arg)>&& cb)
+      : std::function<void(Arg)>(cb)
+  {
+  }
 };
 
 struct __request_elem
@@ -65,17 +73,10 @@ struct __request_elem
       _function<messages::listen_key*>, _function<messages::empty_args*>>
       cb_;
 
-  __request_elem(const __request_elem& other)
-      : req_(other.req_)
-      , message_(other.message_)
-      , cb_(other.cb_)
-  {
-  }
-
   template<typename Body, typename T>
   explicit __request_elem(
       std::shared_ptr<boost::beast::http::request<Body>> req, T* tok,
-      _function<T*> cb)
+      std::function<void(T*)> cb)
       : req_(req)
       , message_(tok)
       , cb_(cb)
@@ -85,8 +86,9 @@ struct __request_elem
   void operator()(const json::value& jv)
   {
     boost::variant2::visit(
-        [this](auto cb) {
+        [this, &jv](auto cb) {
           auto v = static_cast<typename decltype(cb)::arg_type>(message_);
+          *v     = jv;
           cb(v);
         },
         cb_);
@@ -94,7 +96,7 @@ struct __request_elem
 };
 
 template<typename T>
-using DefaultHandler = _function<T*>;
+using DefaultHandler = std::function<void(T*)>;
 
 // TODO: Maybe add compatibility with Boost 1.67 ????
 using http_stream_t =
@@ -453,7 +455,7 @@ really_inline void stream::next_async_request()
   if (!e.req_.index())
     do_write(*boost::variant2::get<0>(e.req_));
   else
-    do_write(*boost::variant2::get<0>(e.req_));
+    do_write(*boost::variant2::get<1>(e.req_));
 }
 
 template<class T>

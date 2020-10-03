@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
   }
   catch (const binance::error& ec)
   {
-    std::cout << ec << std::endl;
+    std::cout << "binance error: " << ec << std::endl;
   }
 
   return 0;
