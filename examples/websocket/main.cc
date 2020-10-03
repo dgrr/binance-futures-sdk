@@ -55,7 +55,6 @@ private:
       if (k.error() == simdjson::SUCCESS)
       {
         kl = k;
-
         std::cout << (kl.closed ? "CLOSED: " : "OPEN: ") << kl.open_price
                   << " | " << kl.trades << std::endl;
       }

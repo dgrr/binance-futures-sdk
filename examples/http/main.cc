@@ -45,9 +45,9 @@ int main(int argc, char* argv[])
   std::cout << "Connecting to " << args["url"].as<std::string>() << std::endl;
 
   api.async_connect();
-  binance::http::messages::kline_data kd("btcusdt", "1m");
-  api.async_read(kd, [&api](const auto& kd) {
-    for (auto& k : kd.klines)
+  auto kd = new binance::http::messages::kline_data("btcusdt", "1m");
+  api.async_read(kd, [&api](auto* kd) {
+    for (auto& k : kd->klines)
     {
       std::cout << "open: " << k.open << std::endl;
     }

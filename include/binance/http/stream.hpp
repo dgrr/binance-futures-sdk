@@ -45,6 +45,12 @@ public:
   }
 };
 
+template<typename Arg>
+struct _function : public std::function<void(Arg)>
+{
+  using arg_type = Arg;
+};
+
 struct __request_elem
 {
   boost::variant2::variant<
@@ -53,13 +59,10 @@ struct __request_elem
       std::shared_ptr<
           boost::beast::http::request<boost::beast::http::string_body>>>
       req_;
-  boost::variant2::variant<messages::get_position_mode, messages::kline_data,
-                           messages::listen_key, messages::empty_args>
-      message_;
-  boost::variant2::variant<std::function<void(messages::get_position_mode)>,
-                           std::function<void(messages::kline_data)>,
-                           std::function<void(messages::listen_key)>,
-                           std::function<void(messages::empty_args)>>
+  void* message_;
+  boost::variant2::variant<
+      _function<messages::get_position_mode*>, _function<messages::kline_data*>,
+      _function<messages::listen_key*>, _function<messages::empty_args*>>
       cb_;
 
   __request_elem(const __request_elem& other)
@@ -71,59 +74,27 @@ struct __request_elem
 
   template<typename Body, typename T>
   explicit __request_elem(
-      std::shared_ptr<boost::beast::http::request<Body>> req, T& tok,
-      std::function<void(T)> cb)
+      std::shared_ptr<boost::beast::http::request<Body>> req, T* tok,
+      _function<T*> cb)
       : req_(req)
       , message_(tok)
       , cb_(cb)
   {
   }
 
-  // TODO: Try to remove all this switch case
   void operator()(const json::value& jv)
   {
-    /* TODO: boost::variant2::visit(__request_visitor(*this, jv), message_);
-     * To use the visitor we need to get the callback too. 2 visitors then, one
-     * for the message and the other one for the callback...
-     */
-    using namespace boost::variant2;
-
-    switch (message_.index())
-    {
-      case 0:  // messages::get_position_mode
-      {
-        auto& msg = get<0>(message_);
-        msg       = jv;
-        get<0>(cb_)(msg);
-      }
-      break;
-      case 1:
-      {
-        auto& msg = get<1>(message_);
-        msg       = jv;
-        get<1>(cb_)(msg);
-      }
-      break;
-      case 2:
-      {
-        auto& msg = get<2>(message_);
-        msg       = jv;
-        get<2>(cb_)(msg);
-      }
-      break;
-      case 3:
-      {
-        auto& msg = get<3>(message_);
-        msg       = jv;
-        get<3>(cb_)(msg);
-      }
-      break;
-    }
+    boost::variant2::visit(
+        [this](auto cb) {
+          auto v = static_cast<typename decltype(cb)::arg_type>(message_);
+          cb(v);
+        },
+        cb_);
   }
 };
 
 template<typename T>
-using DefaultHandler = std::function<void(T)>;
+using DefaultHandler = _function<T*>;
 
 // TODO: Maybe add compatibility with Boost 1.67 ????
 using http_stream_t =
@@ -182,10 +153,10 @@ public:
   void async_read(DefaultHandler<T>, Args... args);
   template<typename T, class... Args>
   void async_write(DefaultHandler<T>, Args... args);
-  void async_read(messages::get_position_mode&,
+  void async_read(messages::get_position_mode*,
                   DefaultHandler<messages::get_position_mode>);
-  void async_read(messages::kline_data&, DefaultHandler<messages::kline_data>);
-  void async_read(messages::listen_key&, DefaultHandler<messages::listen_key>);
+  void async_read(messages::kline_data*, DefaultHandler<messages::kline_data>);
+  void async_read(messages::listen_key*, DefaultHandler<messages::listen_key>);
 
   // renew_listen_key sets up a timer to renew the listen_key automatically
   // for the WebSocket User Data Streams.
@@ -210,18 +181,18 @@ private:
   really_inline void do_write(boost::beast::http::request<T>&);
   template<class ReqBody, class Msg, __SECURITY_CODES C>
   void async_call(std::shared_ptr<boost::beast::http::request<ReqBody>> req,
-                  Msg& msg, DefaultHandler<Msg> cb);
+                  Msg* msg, DefaultHandler<Msg> cb);
   template<class ReqBody, __SECURITY_CODES C, class Msg>
-  void async_get(const std::string& endpoint, Msg& msg, DefaultHandler<Msg> cb);
+  void async_get(const std::string& endpoint, Msg* msg, DefaultHandler<Msg> cb);
   template<class ReqBody, __SECURITY_CODES C, class Msg>
-  void async_post(const std::string& endpoint, Msg& msg,
+  void async_post(const std::string& endpoint, Msg* msg,
                   DefaultHandler<Msg> cb);
   template<class ReqBody, __SECURITY_CODES C, class Msg>
-  void async_del(const std::string& endpoint, Msg& msg, DefaultHandler<Msg> cb);
+  void async_del(const std::string& endpoint, Msg* msg, DefaultHandler<Msg> cb);
   template<class ReqBody, __SECURITY_CODES C, class Msg>
-  void async_put(const std::string& endpoint, Msg& msg, DefaultHandler<Msg> cb);
+  void async_put(const std::string& endpoint, Msg* msg, DefaultHandler<Msg> cb);
   template<class BodyType, class Msg, __SECURITY_CODES C>
-  void prepare_request(boost::beast::http::request<BodyType>&, Msg& msg);
+  void prepare_request(boost::beast::http::request<BodyType>&, Msg* msg);
   really_inline void get_error_codes(binance::error&, const json::value&);
   template<class JSONValue>
   really_inline void parse_response(binance::error& ec, JSONValue& v,
@@ -373,9 +344,9 @@ void stream::renew_listen_key()
 
     namespace http = boost::beast::http;
 
-    messages::empty_args e;
-    DefaultHandler<messages::empty_args> f = [this](messages::empty_args e) {
-      boost::ignore_unused(e);
+    messages::empty_args* e                = new messages::empty_args();
+    DefaultHandler<messages::empty_args> f = [this](messages::empty_args* e) {
+      delete e;
       renew_listen_key();
     };
 
@@ -495,7 +466,7 @@ really_inline void stream::do_write(boost::beast::http::request<T>& req)
 
 template<class ReqBody, class Msg, __SECURITY_CODES C>
 void stream::async_call(
-    std::shared_ptr<boost::beast::http::request<ReqBody>> req, Msg& msg,
+    std::shared_ptr<boost::beast::http::request<ReqBody>> req, Msg* msg,
     DefaultHandler<Msg> cb)
 {
   namespace http = boost::beast::http;
@@ -515,7 +486,7 @@ void stream::async_call(
 }
 
 template<class ReqBody, __SECURITY_CODES C, class Msg>
-void stream::async_get(const std::string& endpoint, Msg& msg,
+void stream::async_get(const std::string& endpoint, Msg* msg,
                        DefaultHandler<Msg> cb)
 {
   namespace http = boost::beast::http;
@@ -527,7 +498,7 @@ void stream::async_get(const std::string& endpoint, Msg& msg,
 }
 
 template<class ReqBody, __SECURITY_CODES C, class Msg>
-void stream::async_put(const std::string& endpoint, Msg& msg,
+void stream::async_put(const std::string& endpoint, Msg* msg,
                        DefaultHandler<Msg> cb)
 {
   namespace http = boost::beast::http;
@@ -538,7 +509,7 @@ void stream::async_put(const std::string& endpoint, Msg& msg,
 }
 
 template<class ReqBody, __SECURITY_CODES C, class Msg>
-void stream::async_del(const std::string& endpoint, Msg& msg,
+void stream::async_del(const std::string& endpoint, Msg* msg,
                        DefaultHandler<Msg> cb)
 {
   namespace http = boost::beast::http;
@@ -549,13 +520,12 @@ void stream::async_del(const std::string& endpoint, Msg& msg,
 }
 
 template<class ReqBody, __SECURITY_CODES C, class Msg>
-void stream::async_post(const std::string& endpoint, Msg& m,
+void stream::async_post(const std::string& endpoint, Msg* msg,
                         DefaultHandler<Msg> cb)
 {
   namespace http = boost::beast::http;
   auto req =
       std::make_shared<http::request<ReqBody>>(http::verb::post, endpoint, 11);
-  Msg msg(m);
 
   async_call<ReqBody, Msg, C>(req, msg, cb);
 }
@@ -563,27 +533,27 @@ void stream::async_post(const std::string& endpoint, Msg& m,
 template<typename T, class... Args>
 void stream::async_read(DefaultHandler<T> cb, Args... args)
 {
-  T v(std::forward<Args>(args)...);
-  async_read(v, std::move(cb));
+  auto v = std::make_shared<T>(std::forward<Args>(args)...);
+  async_read(v.get(), [v, cb](T* p) { cb(p); });
 }
 
 template<typename T, class... Args>
 void stream::async_write(DefaultHandler<T> cb, Args... args)
 {
-  T v(std::forward<Args>(args)...);
-  async_write(v, std::move(cb));
+  auto v = std::make_shared<T>(std::forward<Args>(args)...);
+  async_write(v.get(), [v, cb](T* p) { cb(p); });
 }
 
-void stream::async_read(messages::get_position_mode& msg,
+void stream::async_read(messages::get_position_mode* msg,
                         DefaultHandler<messages::get_position_mode> cb)
 {
   namespace http = boost::beast::http;
-  msg.insert_kv({"timestamp", string_milli_epoch()});
+  msg->insert_kv({"timestamp", string_milli_epoch()});
   async_get<http::empty_body, __SECURITY_CODES::USER_DATA>(
       "/fapi/v1/positionSide/dual", msg, std::move(cb));
 }
 
-void stream::async_read(messages::kline_data& msg,
+void stream::async_read(messages::kline_data* msg,
                         DefaultHandler<messages::kline_data> cb)
 {
   namespace http = boost::beast::http;
@@ -591,7 +561,7 @@ void stream::async_read(messages::kline_data& msg,
                                                       std::move(cb));
 }
 
-void stream::async_read(messages::listen_key& msg,
+void stream::async_read(messages::listen_key* msg,
                         DefaultHandler<messages::listen_key> cb)
 {
   namespace http = boost::beast::http;
@@ -634,7 +604,7 @@ really_inline void stream::parse_response(binance::error& ec, JSONValue& v,
 
 template<class BodyType, class Msg, __SECURITY_CODES C>
 void stream::prepare_request(boost::beast::http::request<BodyType>& req,
-                             Msg& msg)
+                             Msg* msg)
 {
   namespace http = boost::beast::http;
 
@@ -646,10 +616,10 @@ void stream::prepare_request(boost::beast::http::request<BodyType>& req,
   std::string query;
 
   // if constexpr (std::is_base_of_v<query_args, Msg>)
-  if (!msg.args().empty())
+  if (!msg->args().empty())
   {
     // TODO: Try to parse a copy of the base_url_
-    binance::http::parse_args(target, query, msg.args());
+    binance::http::parse_args(target, query, msg->args());
   }
 
   if constexpr (C == __SECURITY_CODES::USER_DATA
