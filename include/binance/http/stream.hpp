@@ -70,7 +70,8 @@ struct __request_elem
   void* message_;
   boost::variant2::variant<
       _function<messages::get_position_mode*>, _function<messages::kline_data*>,
-      _function<messages::listen_key*>, _function<messages::empty_args*>>
+      _function<messages::listen_key*>, _function<messages::empty_args*>,
+      _function<messages::place_order*>, _function<messages::cancel_order*>>
       cb_;
 
   template<typename Body, typename T>
@@ -155,10 +156,15 @@ public:
   void async_read(DefaultHandler<T>, Args... args);
   template<typename T, class... Args>
   void async_write(DefaultHandler<T>, Args... args);
+
   void async_read(messages::get_position_mode*,
                   DefaultHandler<messages::get_position_mode>);
   void async_read(messages::kline_data*, DefaultHandler<messages::kline_data>);
   void async_read(messages::listen_key*, DefaultHandler<messages::listen_key>);
+  void async_write(messages::place_order*,
+                   DefaultHandler<messages::place_order>);
+  void async_write(messages::cancel_order* msg,
+                   DefaultHandler<messages::cancel_order> cb);
 
   // renew_listen_key sets up a timer to renew the listen_key automatically
   // for the WebSocket User Data Streams.
@@ -569,6 +575,24 @@ void stream::async_read(messages::listen_key* msg,
   namespace http = boost::beast::http;
   async_post<http::empty_body, __SECURITY_CODES::USER_STREAM>(
       "/fapi/v1/listenKey", msg, std::move(cb));
+}
+
+void stream::async_write(messages::place_order* msg,
+                         DefaultHandler<messages::place_order> cb)
+{
+  namespace http = boost::beast::http;
+  msg->insert_kv({"timestamp", string_milli_epoch()});
+  async_post<http::string_body, __SECURITY_CODES::TRADE>("/fapi/v1/order", msg,
+                                                         std::move(cb));
+}
+
+void stream::async_write(messages::cancel_order* msg,
+                         DefaultHandler<messages::cancel_order> cb)
+{
+  namespace http = boost::beast::http;
+  msg->insert_kv({"timestamp", string_milli_epoch()});
+  async_del<http::string_body, __SECURITY_CODES::TRADE>("/fapi/v1/order", msg,
+                                                        std::move(cb));
 }
 
 really_inline void stream::get_error_codes(binance::error& ec,

@@ -61,6 +61,13 @@ struct paginator
 
 namespace messages
 {
+#define setter(R, VCb, VType, K, V) \
+  R VCb(VType V)                    \
+  {                                 \
+    insert_kv({K, V});              \
+    return *this;                   \
+  }
+#define _value_to(x, e) json::value_to(jb, x, e)
 // https://binance-docs.github.io/apidocs/futures/en/#get-current-position-mode-user_data
 struct get_position_mode : public query_args
 {
@@ -108,239 +115,136 @@ struct kline_data : public query_args
       : query_args{{"symbol", symbol}, {"interval", interval}}
   {
   }
-  kline_data& set_start_time(size_t start)
-  {
-    insert_kv({"startTime", start});
-    return *this;
-  }
-  kline_data& set_end_time(size_t end)
-  {
-    insert_kv({"endTime", end});
-    return *this;
-  }
-  kline_data& set_interval(const std::string& interval)
-  {
-    insert_kv({"interval", interval});
-    return *this;
-  }
-  kline_data& set_limit(size_t limit)
-  {
-    insert_kv({"limit", limit});
-    return *this;
-  }
+  setter(kline_data&, set_start_time, size_t, "startTime", start);
+  setter(kline_data&, set_end_time, size_t, "endTime", end);
+  setter(kline_data&, set_interval, const std::string&, "interval", interval);
+  setter(kline_data&, set_limit, size_t, "limit", limit);
+
   kline_data& operator=(const json::array& jb)
   {
     json::value_to(jb, klines);
     return *this;
   }
 };
-// https://docs.binance.com/futures/#place-an-order
-struct place_limit_order : public query_args
+
+struct order_base
 {
-  // order_id response
-  std::string order_id;
-
-  // place_limit_order() = delete;
-  place_limit_order(const std::string& client_oid, const std::string& side,
-                    const std::string& symbol, size_t leverage, double price,
-                    size_t size)
-      : query_args{{"clientOid", client_oid}, {"side", side},
-                   {"symbol", symbol},        {"leverage", leverage},
-                   {"price", price},          {"size", size},
-                   {"type", "limit"}}
+  // TODO: cumQty, cumQuote, origQty, reduceOnly, closePosition, origType
+  time_point_t update_time;   // updateTime
+  int64_t order_id;           // orderId
+  double executed_qty;        // executedQty
+  double avg_price;           // avgPrice
+  double price;               // price
+  double price_rate;          // priceRate
+  double stop_price;          // stopPrice
+  double activate_price;      // activatePrice
+  std::string client_oid;     // clientOrderId
+  std::string type;           // type
+  std::string side;           // side
+  std::string pos_side;       // positionSide
+  std::string status;         // status
+  std::string symbol;         // symbol
+  std::string time_in_force;  // timeInForce
+  std::string working_type;   // workingType
+  order_base& operator=(const json::object& jb)
   {
-  }
-  place_limit_order& set_side(const std::string& side)
-  {
-    insert_kv({"side", side});
-    return *this;
-  }
-  place_limit_order& set_symbol(const std::string& symbol)
-  {
-    insert_kv({"symbol", symbol});
-    return *this;
-  }
-  place_limit_order& set_leverage(const size_t leverage)
-  {
-    insert_kv({"leverage", leverage});
-    return *this;
-  }
-  place_limit_order& set_remark(const std::string& remark)
-  {
-    insert_kv({"remark", remark});
-    return *this;
-  }
-  // requires set_stop_price and set_stop_price_type
-  place_limit_order& set_stop(const std::string& stop)
-  {
-    insert_kv({"stop", stop});
-    return *this;
-  }
-  place_limit_order& set_stop_price(const double price)
-  {
-    insert_kv({"stopPrice", price});
-    return *this;
-  }
-  // TP, IP or MP
-  place_limit_order& set_stop_price_type(const std::string& type)
-  {
-    insert_kv({"stopPriceType", type});
-    return *this;
-  }
-  place_limit_order& set_price(const double price)
-  {
-    insert_kv({"price", price});
-    return *this;
-  }
-  place_limit_order& set_size(const size_t size)
-  {
-    insert_kv({"size", size});
-    return *this;
-  }
-  place_limit_order& set_reduce_only(bool reduce)
-  {
-    insert_kv({"reduceOnly", reduce});
-    return *this;
-  }
-  place_limit_order& set_close_order(bool close)
-  {
-    insert_kv({"closeOrder", close});
-    return *this;
-  }
-  place_limit_order& set_force_hold(bool hold)
-  {
-    insert_kv({"forceHold", hold});
-    return *this;
-  }
-  place_limit_order& set_time_in_force(const std::string& timein)
-  {
-    insert_kv({"timeInForce", timein});
-    return *this;
-  }
-  place_limit_order& set_post_only(bool post_only)
-  {
-    insert_kv({"postOnly", post_only});
-    return *this;
-  }
-  place_limit_order& set_hidden(bool hidden)
-  {
-    insert_kv({"hidden", hidden});
-    return *this;
-  }
-  place_limit_order& set_iceberg(bool iceberg)
-  {
-    insert_kv({"iceberg", iceberg});
-    return *this;
-  }
-  place_limit_order& set_visible_size(size_t size)
-  {
-    insert_kv({"visibleSize", size});
-    return *this;
-  }
-
-  place_limit_order& operator=(const json::object& jb)
-  {
-    json::value_to(jb, "orderId", order_id);
+    _value_to("updateTime", update_time);
+    _value_to("orderId", order_id);
+    _value_to("executedQty", executed_qty);
+    _value_to("avgPrice", avg_price);
+    _value_to("price", price);
+    _value_to("priceRate", price_rate);
+    _value_to("stopPrice", stop_price);
+    _value_to("activatePrice", activate_price);
+    _value_to("clientOrderId", client_oid);
+    _value_to("type", type);
+    _value_to("side", side);
+    _value_to("positionSide", pos_side);
+    _value_to("status", status);
+    _value_to("symbol", symbol);
+    _value_to("timeInForce", time_in_force);
+    _value_to("workingType", working_type);
     return *this;
   }
 };
-// https://docs.binance.com/futures/#place-an-order
-struct place_market_order : public query_args
+// https://binance-docs.github.io/apidocs/futures/en/#new-order-trade
+struct place_order : public query_args
 {
-  // order_id response
-  std::string order_id;
+  order_base result;
 
-  place_market_order(const std::string& client_oid, const std::string& side,
-                     const std::string& symbol, size_t leverage, double price,
-                     size_t size)
-      : query_args{{"clientOid", client_oid}, {"side", side},
-                   {"symbol", symbol},        {"leverage", leverage},
-                   {"price", price},          {"size", size},
-                   {"type", "market"}}
+  place_order(const std::string& symbol, order_side side, order_type type)
+      : query_args{{"symbol", symbol},
+                   {"side", order_side_string[side]},
+                   {"type", order_type_string[type]}}
   {
   }
-  place_market_order& set_side(const std::string& side)
+
+  setter(place_order&, set_qty, double, "quantity", qty);
+  setter(place_order&, set_price, double, "price", price);
+  setter(place_order&, set_reduce_only, const std::string&, "reduceOnly",
+         reduce_only);
+  setter(place_order&, set_client_order_id, const std::string&,
+         "newClientOrderId", order_id);
+  setter(place_order&, set_stop_price, double, "stopPrice", price);
+  setter(place_order&, set_close_position, const std::string&, "closePosition",
+         close_p);
+  setter(place_order&, set_activation_price, double, "activationPrice", price);
+  setter(place_order&, set_callback_rate, double, "callbackRate", rate);
+  setter(place_order&, set_recv_window, double, "recvWindow", recv_w);
+
+  // setter(place_order&, set_symbol, const std::string&, "symbol", symbol)
+  // setter(place_order&, set_side, const std::string&, "side", side)
+  // setter(place_order&, set_type, const std::string&, "type", type)
+  place_order& set_position_side(position_side ps)
   {
-    insert_kv({"side", side});
+    insert_kv({"positionSide", position_side_string[ps]});
     return *this;
   }
-  place_market_order& set_symbol(const std::string& symbol)
+  place_order& set_time_in_force(time_in_force tif)
   {
-    insert_kv({"symbol", symbol});
+    insert_kv({"timeInForce", time_in_force_string[tif]});
     return *this;
   }
-  place_market_order& set_leverage(const size_t leverage)
+  place_order& set_working_type(working_type w_type)
   {
-    insert_kv({"leverage", leverage});
+    insert_kv({"workingType", working_type_string[w_type]});
     return *this;
   }
-  place_market_order& set_remark(const std::string& remark)
+  place_order& set_response_type(response_type r_type)
   {
-    insert_kv({"remark", remark});
-    return *this;
-  }
-  // requires set_stop_price and set_stop_price_type
-  place_market_order& set_stop(const std::string& stop)
-  {
-    insert_kv({"stop", stop});
-    return *this;
-  }
-  place_market_order& set_stop_price(const double price)
-  {
-    insert_kv({"stopPrice", price});
-    return *this;
-  }
-  // TP, IP or MP
-  place_market_order& set_stop_price_type(const std::string& type)
-  {
-    insert_kv({"stopPriceType", type});
-    return *this;
-  }
-  place_market_order& set_price(const double price)
-  {
-    insert_kv({"price", price});
-    return *this;
-  }
-  place_market_order& set_size(const size_t size)
-  {
-    insert_kv({"size", size});
-    return *this;
-  }
-  place_market_order& set_reduce_only(bool reduce)
-  {
-    insert_kv({"reduceOnly", reduce});
-    return *this;
-  }
-  place_market_order& set_close_order(bool close)
-  {
-    insert_kv({"closeOrder", close});
-    return *this;
-  }
-  place_market_order& set_force_hold(bool hold)
-  {
-    insert_kv({"forceHold", hold});
+    insert_kv({"newOrderRespType", response_type_string[r_type]});
     return *this;
   }
 
-  place_market_order& operator=(const json::object& jb)
+  place_order& operator=(const json::object& jb)
   {
-    json::value_to(jb, "orderId", order_id);
+    result = jb;
     return *this;
   }
 };
-// https://docs.binance.com/#cancel-an-order
+
+// https://binance-docs.github.io/apidocs/futures/en/#cancel-order-trade
 struct cancel_order : public query_args
 {
-  std::vector<std::string_view> canceled;
+  order_base result;
 
-  cancel_order(const std::string& order_id)
-      : query_args{{"", order_id}}
+  cancel_order(const std::string& symbol, int64_t order_id)
+      : query_args{{"symbol", symbol}, {"orderId", order_id}}
   {
   }
+  cancel_order(const std::string& symbol, const std::string& order_oid)
+      : query_args{{"symbol", symbol}, {"origClientOrderId", order_oid}}
+  {
+  }
+
+  setter(cancel_order&, set_order_id, int64_t, "orderId", id);
+  setter(cancel_order&, set_client_order_id, const std::string&,
+         "origClientOrderId", id);
+  setter(cancel_order&, set_recv_window, int64_t, "recvWindow", recv_window);
 
   cancel_order& operator=(const json::object& jb)
   {
-    json::value_to(jb, "cancelledOrderIds", canceled);
+    result = jb;
     return *this;
   }
 };
@@ -365,6 +269,8 @@ struct empty_args : public query_args
     return *this;
   }
 };
+#undef _value_to
+#undef setter
 }  // namespace messages
 }  // namespace http
 }  // namespace binance

@@ -9,6 +9,7 @@ namespace websocket
 {
 namespace messages
 {
+#define _value_to(x, e) json::value_to(jb, x, e)
 // https://binance-docs.github.io/apidocs/futures/en/#mark-price-stream
 struct mark_price
 {
@@ -22,13 +23,13 @@ struct mark_price
 
   mark_price& operator=(const json::object& jb)
   {
-    json::value_to(jb, "e", event_type);
-    json::value_to(jb, "s", symbol);
-    json::value_to(jb, "E", event_time);
-    json::value_to(jb, "T", next_fund_time);
-    json::value_to(jb, "p", price);
-    json::value_to(jb, "i", index_price);
-    json::value_to(jb, "r", funding_rate);
+    _value_to("e", event_type);
+    _value_to("s", symbol);
+    _value_to("E", event_time);
+    _value_to("T", next_fund_time);
+    _value_to("p", price);
+    _value_to("i", index_price);
+    _value_to("r", funding_rate);
     return *this;
   }
 };
@@ -64,23 +65,23 @@ struct kline
 
   kline& operator=(const json::object& jb)
   {
-    json::value_to(jb, "s", symbol);
-    json::value_to(jb, "t", start_time);
-    json::value_to(jb, "T", close_time);
-    json::value_to(jb, "i", interval);
-    json::value_to(jb, "f", first_trade_id);
-    json::value_to(jb, "L", last_trade_id);
-    json::value_to(jb, "o", open_price);
-    json::value_to(jb, "c", close_price);
-    json::value_to(jb, "h", high_price);
-    json::value_to(jb, "l", low_price);
-    json::value_to(jb, "v", base_volume);
-    json::value_to(jb, "n", trades);
-    json::value_to(jb, "x", closed);
-    json::value_to(jb, "q", quote_volume);
-    json::value_to(jb, "n", trades);
-    json::value_to(jb, "V", taker_base_buy_vol);
-    json::value_to(jb, "Q", taker_quote_buy_vol);
+    _value_to("s", symbol);
+    _value_to("t", start_time);
+    _value_to("T", close_time);
+    _value_to("i", interval);
+    _value_to("f", first_trade_id);
+    _value_to("L", last_trade_id);
+    _value_to("o", open_price);
+    _value_to("c", close_price);
+    _value_to("h", high_price);
+    _value_to("l", low_price);
+    _value_to("v", base_volume);
+    _value_to("n", trades);
+    _value_to("x", closed);
+    _value_to("q", quote_volume);
+    _value_to("n", trades);
+    _value_to("V", taker_base_buy_vol);
+    _value_to("Q", taker_quote_buy_vol);
     return *this;
   }
 };
@@ -98,15 +99,15 @@ struct mini_ticker
   double quote_vol;             // q
   mini_ticker& operator=(const json::object& jb)
   {
-    json::value_to(jb, "e", event_type);
-    json::value_to(jb, "s", symbol);
-    json::value_to(jb, "E", event_time);
-    json::value_to(jb, "c", close_price);
-    json::value_to(jb, "o", open_price);
-    json::value_to(jb, "h", high_price);
-    json::value_to(jb, "l", low_price);
-    json::value_to(jb, "v", base_vol);
-    json::value_to(jb, "q", quote_vol);
+    _value_to("e", event_type);
+    _value_to("s", symbol);
+    _value_to("E", event_time);
+    _value_to("c", close_price);
+    _value_to("o", open_price);
+    _value_to("h", high_price);
+    _value_to("l", low_price);
+    _value_to("v", base_vol);
+    _value_to("q", quote_vol);
     return *this;
   }
 };
@@ -142,22 +143,22 @@ struct ticker
   int64_t trades;          // n
   ticker& operator=(const json::object& jb)
   {
-    json::value_to(jb, "e", event_type);
-    json::value_to(jb, "E", event_time);
-    json::value_to(jb, "s", symbol);
-    json::value_to(jb, "p", price_change);
-    json::value_to(jb, "P", price_change_pct);
-    json::value_to(jb, "w", w_avg_price);
-    json::value_to(jb, "c", last_price);
-    json::value_to(jb, "Q", last_qty);
-    json::value_to(jb, "o", open_price);
-    json::value_to(jb, "h", high_price);
-    json::value_to(jb, "l", low_price);
-    json::value_to(jb, "v", base_vol);
-    json::value_to(jb, "q", quote_vol);
-    json::value_to(jb, "F", first_trade_id);
-    json::value_to(jb, "L", last_trade_id);
-    json::value_to(jb, "n", trades);
+    _value_to("e", event_type);
+    _value_to("E", event_time);
+    _value_to("s", symbol);
+    _value_to("p", price_change);
+    _value_to("P", price_change_pct);
+    _value_to("w", w_avg_price);
+    _value_to("c", last_price);
+    _value_to("Q", last_qty);
+    _value_to("o", open_price);
+    _value_to("h", high_price);
+    _value_to("l", low_price);
+    _value_to("v", base_vol);
+    _value_to("q", quote_vol);
+    _value_to("F", first_trade_id);
+    _value_to("L", last_trade_id);
+    _value_to("n", trades);
     return *this;
   }
 };
@@ -184,14 +185,14 @@ struct book_ticker
   double best_ask_qty;       // A
   book_ticker& operator=(const json::object& jb)
   {
-    json::value_to(jb, "u", order_book_id);
-    json::value_to(jb, "T", transaction_time);
-    json::value_to(jb, "E", event_time);
-    json::value_to(jb, "s", symbol);
-    json::value_to(jb, "b", best_bid_price);
-    json::value_to(jb, "B", best_bid_qty);
-    json::value_to(jb, "a", best_ask_price);
-    json::value_to(jb, "A", best_ask_qty);
+    _value_to("u", order_book_id);
+    _value_to("T", transaction_time);
+    _value_to("E", event_time);
+    _value_to("s", symbol);
+    _value_to("b", best_bid_price);
+    _value_to("B", best_bid_qty);
+    _value_to("a", best_ask_price);
+    _value_to("A", best_ask_qty);
     return *this;
   }
 };
@@ -220,16 +221,16 @@ struct liq_order
   double acc_filled;              // z
   liq_order& operator=(const json::object& jb)
   {
-    json::value_to(jb, "T", trade_time);
-    json::value_to(jb, "s", symbol);
-    json::value_to(jb, "S", side);
-    json::value_to(jb, "o", order_type);
-    json::value_to(jb, "X", order_status);
-    json::value_to(jb, "f", tif);
-    json::value_to(jb, "q", qty);
-    json::value_to(jb, "ap", avg_price);
-    json::value_to(jb, "l", last_filled_qty);
-    json::value_to(jb, "z", acc_filled);
+    _value_to("T", trade_time);
+    _value_to("s", symbol);
+    _value_to("S", side);
+    _value_to("o", order_type);
+    _value_to("X", order_status);
+    _value_to("f", tif);
+    _value_to("q", qty);
+    _value_to("ap", avg_price);
+    _value_to("l", last_filled_qty);
+    _value_to("z", acc_filled);
     return *this;
   }
 };
@@ -265,12 +266,12 @@ struct partial_book_depth
   std::vector<partial_book> asks;  // a
   partial_book_depth& operator=(const json::object& jb)
   {
-    json::value_to(jb, "e", event_type);
-    json::value_to(jb, "s", symbol);
-    json::value_to(jb, "E", event_time);
-    json::value_to(jb, "T", x_time);
-    json::value_to(jb, "b", bids);
-    json::value_to(jb, "a", asks);
+    _value_to("e", event_type);
+    _value_to("s", symbol);
+    _value_to("E", event_time);
+    _value_to("T", x_time);
+    _value_to("b", bids);
+    _value_to("a", asks);
     return *this;
   }
 };
@@ -278,6 +279,59 @@ struct partial_book_depth
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-info-streams
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-nav-kline-candlestick-streams
 // https://binance-docs.github.io/apidocs/futures/en/#event-user-data-stream-expired
+struct user_data_expired
+{
+  std::string_view event_type;  // e
+  time_point_t event_time;      // E
+  user_data_expired& operator=(const json::object& jb)
+  {
+    _value_to("e", event_type);
+    _value_to("E", event_time);
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#event-margin-call
+struct user_margin_call
+{
+  struct position
+  {
+    std::string_view symbol;       // s
+    std::string_view pos_side;     // ps
+    std::string_view margin_type;  // mt
+    double pos_amount;             // pa
+    // TODO: `iw` issolated wallet?
+    double mark_price;  // mp
+    double u_pnl;       // up
+    double m_margin;    // mm
+    position& operator=(const json::object& jb)
+    {
+      _value_to("s", symbol);
+      _value_to("ps", pos_side);
+      _value_to("mt", margin_type);
+      _value_to("pa", pos_amount);
+      _value_to("mp", mark_price);
+      _value_to("up", u_pnl);
+      _value_to("mm", m_margin);
+      return *this;
+    }
+  };
+
+  std::string_view event_type;       // e
+  time_point_t event_time;           // E
+  double cw_balance;                 // cw
+  std::vector<position> pos_margin;  // p
+  user_margin_call& operator=(const json::object& jb)
+  {
+    _value_to("e", event_type);
+    _value_to("E", event_time);
+    _value_to("cw", cw_balance);
+    _value_to("p", pos_margin);
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#event-balance-and-position-update
+// https://binance-docs.github.io/apidocs/futures/en/#event-order-update
+#undef _value_to
 }  // namespace messages
 }  // namespace websocket
 }  // namespace binance

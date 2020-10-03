@@ -1,13 +1,13 @@
 #ifndef BINANCE_COMMON_HPP
 #define BINANCE_COMMON_HPP
 
+#include <simdjson.h>  // really_inline here
+
 #include <boost/asio/io_context.hpp>
 #include <boost/beast/core/bind_handler.hpp>
 #include <boost/system/error_code.hpp>
 #include <chrono>
 #include <string>
-
-#include <simdjson.h>  // really_inline here
 
 #ifndef really_inline
 #define really_inline __attribute__((always_inline)) inline
@@ -15,9 +15,9 @@
 
 namespace binance
 {
-using io_context         = boost::asio::io_context;
-using boost_error        = boost::system::error_code;
-using time_point_t       = std::chrono::time_point<std::chrono::system_clock>;
+using io_context   = boost::asio::io_context;
+using boost_error  = boost::system::error_code;
+using time_point_t = std::chrono::time_point<std::chrono::system_clock>;
 }  // namespace binance
 
 #ifndef nano_epoch
