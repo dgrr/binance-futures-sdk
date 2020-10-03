@@ -26,6 +26,12 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/contrib/boost.json) # should use boost js
 
 option(BINANCE_BUILD_EXAMPLES "Builds examples listed on the examples folder." ON)
 option(BINANCE_DISABLE_THREADING "Disables the thread library" ON)
+option(BINANCE_USE_STRING_VIEW "Use string_view as much as possible" ON)
+
+if(BINANCE_USE_STRING_VIEW)
+  add_definitions(-DBINANCE_USE_STRING_VIEW)
+  message("Using string_view")
+endif()
 
 if(NOT BINANCE_SIMDJSON_DIR)
     set(BINANCE_SIMDJSON_DIR "${PROJECT_SOURCE_DIR}/contrib/simdjson" CACHE STRING "simdjson location")
@@ -55,21 +61,21 @@ if(BINANCE_DISABLE_THREADING)
   target_compile_definitions(${PROJECT_NAME} INTERFACE BOOST_ASIO_DISABLE_THREADS=1)
 endif()
 
-# Find Boost dependencies
+#Find Boost dependencies
 if(BINANCE_BUILD_EXAMPLES)
   find_package(Boost COMPONENTS system program_options)
 endif()
 
-# Include and link Boost
+#Include and link Boost
 if(Boost_FOUND)
   target_include_directories(${PROJECT_NAME} INTERFACE ${Boost_INCLUDE_DIRS})
   target_link_libraries(${PROJECT_NAME} INTERFACE ${Boost_LIBRARIES})
 endif()
 
-# Find OpenSSL
+#Find OpenSSL
 find_package(OpenSSL REQUIRED)
 
-# Include and link OpenSSL
+#Include and link OpenSSL
 if(OPENSSL_FOUND)
   target_include_directories(${PROJECT_NAME} INTERFACE ${OPENSSL_INCLUDE_DIRS})
   target_link_libraries(${PROJECT_NAME} INTERFACE ${OPENSSL_LIBRARIES})

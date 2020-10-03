@@ -13,6 +13,12 @@
 #define really_inline __attribute__((always_inline)) inline
 #endif
 
+#ifdef BINANCE_USE_STRING_VIEW
+using string_type = std::string_view;
+#else
+using string_type = std::string;
+#endif
+
 namespace binance
 {
 using io_context   = boost::asio::io_context;

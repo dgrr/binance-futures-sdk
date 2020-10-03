@@ -73,10 +73,10 @@ struct exchange_info : public query_args
 {
   struct rate_limit
   {
-    std::string interval;    // interval
+    string_type interval;    // interval
     int interval_num;        // intervalNum
     int limit;               // limit
-    std::string limit_type;  // rateLimitType
+    string_type limit_type;  // rateLimitType
     rate_limit& operator=(const json::object& jb)
     {
       _value_to("interval", interval);
@@ -93,10 +93,10 @@ struct exchange_info : public query_args
     int qty_precision;        // quantityPrecision
     int base_precision;       // baseAssetPrecision
     int quote_precision;      // quotePrecision
-    std::string symbol;       // symbol
-    std::string status;       // status
-    std::string base_asset;   // baseAsset
-    std::string quote_asset;  // quoteAsset
+    string_type symbol;       // symbol
+    string_type status;       // status
+    string_type base_asset;   // baseAsset
+    string_type quote_asset;  // quoteAsset
     double m_margin_pct;      // maintMarginPercent
     double r_margin_pct;      // requiredMarginPercent
     // TODO: underlyingType
@@ -161,7 +161,7 @@ struct orderbook : public query_args
   {
   }
 
-  orderbook& set_limit(int limit)
+  orderbook& set_limit(size_t limit)
   {
     insert_kv({"limit", limit});
     return *this;
@@ -207,7 +207,7 @@ struct recent_trades : public query_args
   {
   }
 
-  recent_trades& set_limit(int limit)
+  recent_trades& set_limit(size_t limit)
   {
     insert_kv({"limit", limit});
     return *this;
@@ -224,7 +224,7 @@ struct recent_trades : public query_args
 // https://binance-docs.github.io/apidocs/futures/en/#mark-price
 struct mark_price : public query_args
 {
-  std::string symbol;              // symbol
+  string_type symbol;              // symbol
   double price;                    // markPrice
   double index_price;              // indexPrice
   double last_funding_rate;        // lastFundingRate
@@ -252,7 +252,7 @@ struct mark_price : public query_args
 // https://binance-docs.github.io/apidocs/futures/en/#24hr-ticker-price-change-statistics
 struct price_ticker : public query_args
 {
-  std::string symbol;  // symbol
+  string_type symbol;  // symbol
   double price;        // price
   time_point_t time;   // time
 
@@ -348,14 +348,14 @@ struct order_base
   double price_rate;          // priceRate
   double stop_price;          // stopPrice
   double activate_price;      // activatePrice
-  std::string client_oid;     // clientOrderId
-  std::string type;           // type
-  std::string side;           // side
-  std::string pos_side;       // positionSide
-  std::string status;         // status
-  std::string symbol;         // symbol
-  std::string time_in_force;  // timeInForce
-  std::string working_type;   // workingType
+  string_type client_oid;     // clientOrderId
+  string_type type;           // type
+  string_type side;           // side
+  string_type pos_side;       // positionSide
+  string_type status;         // status
+  string_type symbol;         // symbol
+  string_type time_in_force;  // timeInForce
+  string_type working_type;   // workingType
   order_base& operator=(const json::object& jb)
   {
     _value_to("updateTime", update_time);
@@ -461,7 +461,7 @@ struct cancel_order : public query_args
 // https://binance-docs.github.io/apidocs/futures/en/#start-user-data-stream-user_stream
 struct listen_key : public query_args
 {
-  std::string key;
+  string_type key;
 
   listen_key()        = default;
   listen_key& operator=(const json::object& jb)
