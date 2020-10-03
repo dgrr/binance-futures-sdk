@@ -51,6 +51,7 @@ int main(int argc, char* argv[])
     {
       std::cout << "open: " << k.open << std::endl;
     }
+    delete kd;
     api.close();
   });
 
