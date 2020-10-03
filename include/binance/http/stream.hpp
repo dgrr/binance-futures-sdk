@@ -71,7 +71,10 @@ struct __request_elem
   boost::variant2::variant<
       _function<messages::get_position_mode*>, _function<messages::kline_data*>,
       _function<messages::listen_key*>, _function<messages::empty_args*>,
-      _function<messages::place_order*>, _function<messages::cancel_order*>>
+      _function<messages::place_order*>, _function<messages::cancel_order*>,
+      _function<messages::orderbook*>, _function<messages::exchange_info*>,
+      _function<messages::recent_trades*>, _function<messages::mark_price*>,
+      _function<messages::price_ticker*>>
       cb_;
 
   template<typename Body, typename T>
@@ -159,12 +162,61 @@ public:
 
   void async_read(messages::get_position_mode*,
                   DefaultHandler<messages::get_position_mode>);
-  void async_read(messages::kline_data*, DefaultHandler<messages::kline_data>);
   void async_read(messages::listen_key*, DefaultHandler<messages::listen_key>);
   void async_write(messages::place_order*,
                    DefaultHandler<messages::place_order>);
-  void async_write(messages::cancel_order* msg,
-                   DefaultHandler<messages::cancel_order> cb);
+  void async_write(messages::cancel_order*,
+                   DefaultHandler<messages::cancel_order>);
+  void async_read(messages::exchange_info*,
+                  DefaultHandler<messages::exchange_info>);
+  void async_read(messages::orderbook*, DefaultHandler<messages::orderbook>);
+  void async_read(messages::recent_trades*,
+                  DefaultHandler<messages::recent_trades>);
+  // https://binance-docs.github.io/apidocs/futures/en/#old-trades-lookup-market_data
+  // https://binance-docs.github.io/apidocs/futures/en/#compressed-aggregate-trades-list
+  void async_read(messages::kline_data*, DefaultHandler<messages::kline_data>);
+  void async_read(messages::mark_price*, DefaultHandler<messages::mark_price>);
+  // https://binance-docs.github.io/apidocs/futures/en/#get-funding-rate-history
+  // https://binance-docs.github.io/apidocs/futures/en/#24hr-ticker-price-change-statistics
+  void async_read(messages::price_ticker*,
+                  DefaultHandler<messages::price_ticker>);
+  // https://binance-docs.github.io/apidocs/futures/en/#symbol-order-book-ticker
+  // https://binance-docs.github.io/apidocs/futures/en/#get-all-liquidation-orders
+  // https://binance-docs.github.io/apidocs/futures/en/#open-interest
+  // https://binance-docs.github.io/apidocs/futures/en/#open-interest-statistics
+  // https://binance-docs.github.io/apidocs/futures/en/#top-trader-long-short-ratio-accounts-market_data
+  // https://binance-docs.github.io/apidocs/futures/en/#top-trader-long-short-ratio-positions
+  // https://binance-docs.github.io/apidocs/futures/en/#long-short-ratio
+  // https://binance-docs.github.io/apidocs/futures/en/#taker-buy-sell-volume
+  // https://binance-docs.github.io/apidocs/futures/en/#historical-blvt-nav-kline-candlestick
+
+  // https://binance-docs.github.io/apidocs/futures/en/#new-future-account-transfer
+  // https://binance-docs.github.io/apidocs/futures/en/#get-future-account-transaction-history-list-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#change-position-mode-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#get-current-position-mode-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#new-order-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#place-multiple-orders-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#query-order-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#cancel-order-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#cancel-all-open-orders-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#cancel-multiple-orders-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#auto-cancel-all-open-orders-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#query-current-open-order-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#current-all-open-orders-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#all-orders-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#futures-account-balance-v2-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#account-information-v2-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#change-initial-leverage-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#change-margin-type-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#modify-isolated-position-margin-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#get-position-margin-change-history-trade
+  // https://binance-docs.github.io/apidocs/futures/en/#position-information-v2-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#account-trade-list-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#get-income-history-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#notional-and-leverage-brackets-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#position-adl-quantile-estimation-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#user-39-s-force-orders-user_data
+  // https://binance-docs.github.io/apidocs/futures/en/#user-api-trading-quantitative-rules-indicators-user_data
 
   // renew_listen_key sets up a timer to renew the listen_key automatically
   // for the WebSocket User Data Streams.
@@ -173,8 +225,8 @@ public:
 private:
   // update every 1h the DNS records.
   void resolve_timer();
-  // reconnect every 15 seconds.
-  void connect_timer();
+  // ping every 15 seconds.
+  void ping_timer();
   // clear all the timers that expired
   void clear_timers();
   void on_resolve(std::shared_ptr<boost::asio::ip::tcp::resolver>,
@@ -205,6 +257,7 @@ private:
   template<class JSONValue>
   really_inline void parse_response(binance::error& ec, JSONValue& v,
                                     const std::string& body);
+  really_inline void async_ping();
 };
 
 stream::stream(binance::io_context& ioc, auth_opts opts,
@@ -364,7 +417,7 @@ void stream::renew_listen_key()
   });
 }
 
-void stream::connect_timer()
+void stream::ping_timer()
 {
   timers_.emplace_back(ioc_);
 
@@ -377,9 +430,9 @@ void stream::connect_timer()
     clear_timers();
 
     if (is_writing_)
-      connect_timer();
+      ping_timer();
     else
-      async_connect();
+      async_ping();
   });
 }
 
@@ -395,7 +448,7 @@ void stream::on_connect(boost::system::error_code const& ec,
   is_open_ = true;
 
   next_async_request();
-  // connect_timer();
+  ping_timer();
 }
 
 void stream::on_write(boost::system::error_code const& ec, size_t size)
@@ -593,6 +646,57 @@ void stream::async_write(messages::cancel_order* msg,
   msg->insert_kv({"timestamp", string_milli_epoch()});
   async_del<http::string_body, __SECURITY_CODES::TRADE>("/fapi/v1/order", msg,
                                                         std::move(cb));
+}
+
+void stream::async_read(messages::exchange_info* msg,
+                        DefaultHandler<messages::exchange_info> cb)
+{
+  namespace http = boost::beast::http;
+  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/exchangeInfo",
+                                                       msg, std::move(cb));
+}
+
+void stream::async_read(messages::orderbook* msg,
+                        DefaultHandler<messages::orderbook> cb)
+{
+  namespace http = boost::beast::http;
+  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/depth", msg,
+                                                       std::move(cb));
+}
+
+void stream::async_read(messages::recent_trades* msg,
+                        DefaultHandler<messages::recent_trades> cb)
+{
+  namespace http = boost::beast::http;
+  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/klines", msg,
+                                                       std::move(cb));
+}
+
+void stream::async_read(messages::mark_price* msg,
+                        DefaultHandler<messages::mark_price> cb)
+{
+  namespace http = boost::beast::http;
+  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/premiumIndex",
+                                                       msg, std::move(cb));
+}
+
+void stream::async_read(messages::price_ticker* msg,
+                        DefaultHandler<messages::price_ticker> cb)
+{
+  namespace http = boost::beast::http;
+  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/ticker/price",
+                                                       msg, std::move(cb));
+}
+
+void stream::async_ping()
+{
+  namespace http = boost::beast::http;
+  auto v         = std::make_shared<messages::empty_args>();
+  async_get<http::empty_body, __SECURITY_CODES::NONE, messages::empty_args>(
+      "/fapi/v1/ping", v.get(), [this, v](auto* e) {
+        boost::ignore_unused(e);
+        ping_timer();
+      });
 }
 
 really_inline void stream::get_error_codes(binance::error& ec,

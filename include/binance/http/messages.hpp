@@ -68,6 +68,217 @@ namespace messages
     return *this;                   \
   }
 #define _value_to(x, e) json::value_to(jb, x, e)
+// https://binance-docs.github.io/apidocs/futures/en/#exchange-information
+struct exchange_info : public query_args
+{
+  struct rate_limit
+  {
+    std::string interval;    // interval
+    int interval_num;        // intervalNum
+    int limit;               // limit
+    std::string limit_type;  // rateLimitType
+    rate_limit& operator=(const json::object& jb)
+    {
+      _value_to("interval", interval);
+      _value_to("intervalNum", interval_num);
+      _value_to("limit", limit);
+      _value_to("rateLimitType", limit_type);
+      return *this;
+    }
+  };
+
+  struct symbol_data
+  {
+    int price_precision;      // pricePrecision
+    int qty_precision;        // quantityPrecision
+    int base_precision;       // baseAssetPrecision
+    int quote_precision;      // quotePrecision
+    std::string symbol;       // symbol
+    std::string status;       // status
+    std::string base_asset;   // baseAsset
+    std::string quote_asset;  // quoteAsset
+    double m_margin_pct;      // maintMarginPercent
+    double r_margin_pct;      // requiredMarginPercent
+    // TODO: underlyingType
+    // TODO: underlyingSubType
+    double settle_plan;      // settlePlan
+    double trigger_protect;  // triggerProtect
+    // TODO: filters
+    // TODO: OrderType
+    // TODO: timeInForce
+    symbol_data& operator=(const json::object& jb)
+    {
+      _value_to("symbol", symbol);
+      _value_to("status", status);
+      _value_to("mainMarginPercent", m_margin_pct);
+      _value_to("requiredMarginPercent", r_margin_pct);
+      _value_to("baseAsset", base_asset);
+      _value_to("quoteAsset", quote_asset);
+      _value_to("pricePrecision", price_precision);
+      _value_to("quantityPrecision", qty_precision);
+      _value_to("baseAssetPrecision", base_precision);
+      _value_to("quotePrecision", quote_precision);
+      _value_to("settlePlan", settle_plan);
+      _value_to("triggerProtect", trigger_protect);
+      return *this;
+    }
+  };
+
+  time_point_t server_time;             // serverTime
+  std::vector<rate_limit> rate_limits;  // rateLimits
+  std::vector<symbol_data> symbols;     // symbols
+
+  exchange_info& operator=(const json::object& jb)
+  {
+    _value_to("serverTime", server_time);
+    _value_to("rateLimits", rate_limits);
+    _value_to("symbols", symbols);
+    return *this;
+  }
+};
+// TODO: Get it from websocket?? Or commonly declare?
+struct price_point
+{
+  double price;
+  double qty;
+  price_point& operator=(const json::array& jr)
+  {
+    json::value_to(jr.begin(), jr.end(), price, qty);
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#order-book
+struct orderbook : public query_args
+{
+  int64_t last_update_id;         // lastUpdateId
+  time_point_t output_time;       // E
+  time_point_t x_time;            // T
+  std::vector<price_point> bids;  // bids
+  std::vector<price_point> asks;  // asks
+
+  orderbook(const std::string& symbol)
+      : query_args{{"symbol", symbol}}
+  {
+  }
+
+  orderbook& set_limit(int limit)
+  {
+    insert_kv({"limit", limit});
+    return *this;
+  }
+
+  orderbook& operator=(const json::object& jb)
+  {
+    _value_to("lastUpdateId", last_update_id);
+    _value_to("E", output_time);
+    _value_to("T", x_time);
+    _value_to("bids", bids);
+    _value_to("asks", asks);
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#recent-trades-list
+struct recent_trades : public query_args
+{
+  struct trade
+  {
+    int64_t id;           // id
+    time_point_t time;    // time
+    bool is_buyer_maker;  // isBuyerMaker
+    double price;         // price
+    double qty;           // qty
+    double quote_qty;     // quoteQty
+    trade& operator=(const json::object& jb)
+    {
+      _value_to("id", id);
+      _value_to("time", time);
+      _value_to("isBuyerMaker", is_buyer_maker);
+      _value_to("price", price);
+      _value_to("qty", qty);
+      _value_to("quoteQty", quote_qty);
+      return *this;
+    }
+  };
+
+  std::vector<trade> trades;
+
+  recent_trades(const std::string& symbol)
+      : query_args{{"symbol", symbol}}
+  {
+  }
+
+  recent_trades& set_limit(int limit)
+  {
+    insert_kv({"limit", limit});
+    return *this;
+  }
+
+  recent_trades& operator=(const json::array& jr)
+  {
+    json::value_to(jr, trades);
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#old-trades-lookup-market_data
+// https://binance-docs.github.io/apidocs/futures/en/#compressed-aggregate-trades-list
+// https://binance-docs.github.io/apidocs/futures/en/#mark-price
+struct mark_price : public query_args
+{
+  std::string symbol;              // symbol
+  double price;                    // markPrice
+  double index_price;              // indexPrice
+  double last_funding_rate;        // lastFundingRate
+  time_point_t next_funding_time;  // nextFundingTime
+  time_point_t time;               // time
+
+  // TODO: Support vector of mark_price
+  mark_price(const std::string& symbol)
+      : query_args{{"symbol", symbol}}
+  {
+  }
+
+  mark_price& operator=(const json::object& jb)
+  {
+    _value_to("symbol", symbol);
+    _value_to("markPrice", price);
+    _value_to("indexPrice", index_price);
+    _value_to("lastFundingRate", last_funding_rate);
+    _value_to("nextFundingRate", next_funding_rate);
+    _value_to("time", time);
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#get-funding-rate-history
+// https://binance-docs.github.io/apidocs/futures/en/#24hr-ticker-price-change-statistics
+struct price_ticker : public query_args
+{
+  std::string symbol;  // symbol
+  double price;        // price
+  time_point_t time;   // time
+
+  // TODO: Support multiple
+  price_ticker(const std::string& symbol)
+      : query_args{{"symbol", symbol}}
+  {
+  }
+
+  price_ticker& operator=(const json::object& jb)
+  {
+    _value_to("symbol", symbol);
+    _value_to("price", price);
+    _value_to("time", time);
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#symbol-order-book-ticker
+// https://binance-docs.github.io/apidocs/futures/en/#get-all-liquidation-orders
+// https://binance-docs.github.io/apidocs/futures/en/#open-interest
+// https://binance-docs.github.io/apidocs/futures/en/#open-interest-statistics
+// https://binance-docs.github.io/apidocs/futures/en/#top-trader-long-short-ratio-accounts-market_data
+// https://binance-docs.github.io/apidocs/futures/en/#top-trader-long-short-ratio-positions
+// https://binance-docs.github.io/apidocs/futures/en/#long-short-ratio
+// https://binance-docs.github.io/apidocs/futures/en/#taker-buy-sell-volume
+// https://binance-docs.github.io/apidocs/futures/en/#historical-blvt-nav-kline-candlestick
 // https://binance-docs.github.io/apidocs/futures/en/#get-current-position-mode-user_data
 struct get_position_mode : public query_args
 {
@@ -126,7 +337,6 @@ struct kline_data : public query_args
     return *this;
   }
 };
-
 struct order_base
 {
   // TODO: cumQty, cumQuote, origQty, reduceOnly, closePosition, origType
