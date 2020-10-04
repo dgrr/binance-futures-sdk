@@ -74,7 +74,10 @@ struct __request_elem
       _function<messages::place_order*>, _function<messages::cancel_order*>,
       _function<messages::orderbook*>, _function<messages::exchange_info*>,
       _function<messages::recent_trades*>, _function<messages::mark_price*>,
-      _function<messages::price_ticker*>>
+      _function<messages::price_ticker*>,
+      _function<messages::cancel_order_all*>,
+      _function<messages::current_open_order*>,
+      _function<messages::current_open_order_all*>>
       cb_;
 
   template<typename Body, typename T>
@@ -163,10 +166,6 @@ public:
   void async_read(messages::get_position_mode*,
                   DefaultHandler<messages::get_position_mode>);
   void async_read(messages::listen_key*, DefaultHandler<messages::listen_key>);
-  void async_write(messages::place_order*,
-                   DefaultHandler<messages::place_order>);
-  void async_write(messages::cancel_order*,
-                   DefaultHandler<messages::cancel_order>);
   void async_read(messages::exchange_info*,
                   DefaultHandler<messages::exchange_info>);
   void async_read(messages::orderbook*, DefaultHandler<messages::orderbook>);
@@ -194,15 +193,20 @@ public:
   // https://binance-docs.github.io/apidocs/futures/en/#get-future-account-transaction-history-list-user_data
   // https://binance-docs.github.io/apidocs/futures/en/#change-position-mode-trade
   // https://binance-docs.github.io/apidocs/futures/en/#get-current-position-mode-user_data
-  // https://binance-docs.github.io/apidocs/futures/en/#new-order-trade
+  void async_write(messages::place_order*,
+                   DefaultHandler<messages::place_order>);
   // https://binance-docs.github.io/apidocs/futures/en/#place-multiple-orders-trade
   // https://binance-docs.github.io/apidocs/futures/en/#query-order-user_data
-  // https://binance-docs.github.io/apidocs/futures/en/#cancel-order-trade
-  // https://binance-docs.github.io/apidocs/futures/en/#cancel-all-open-orders-trade
+  void async_write(messages::cancel_order*,
+                   DefaultHandler<messages::cancel_order>);
+  void async_write(messages::cancel_order_all*,
+                   DefaultHandler<messages::cancel_order_all>);
   // https://binance-docs.github.io/apidocs/futures/en/#cancel-multiple-orders-trade
   // https://binance-docs.github.io/apidocs/futures/en/#auto-cancel-all-open-orders-trade
-  // https://binance-docs.github.io/apidocs/futures/en/#query-current-open-order-user_data
-  // https://binance-docs.github.io/apidocs/futures/en/#current-all-open-orders-user_data
+  void async_read(messages::current_open_order*,
+                  DefaultHandler<messages::current_open_order>);
+  void async_read(messages::current_open_order_all*,
+                  DefaultHandler<messages::current_open_order_all>);
   // https://binance-docs.github.io/apidocs/futures/en/#all-orders-user_data
   // https://binance-docs.github.io/apidocs/futures/en/#futures-account-balance-v2-user_data
   // https://binance-docs.github.io/apidocs/futures/en/#account-information-v2-user_data
@@ -646,6 +650,33 @@ void stream::async_write(messages::cancel_order* msg,
   msg->insert_kv({"timestamp", string_milli_epoch()});
   async_del<http::string_body, __SECURITY_CODES::TRADE>("/fapi/v1/order", msg,
                                                         std::move(cb));
+}
+
+void stream::async_write(messages::cancel_order_all* msg,
+                         DefaultHandler<messages::cancel_order_all> cb)
+{
+  namespace http = boost::beast::http;
+  msg->insert_kv({"timestamp", string_milli_epoch()});
+  async_del<http::string_body, __SECURITY_CODES::TRADE>(
+      "/fapi/v1/allOpenOrders", msg, std::move(cb));
+}
+
+void stream::async_read(messages::current_open_order* msg,
+                        DefaultHandler<messages::current_open_order> cb)
+{
+  namespace http = boost::beast::http;
+  msg->insert_kv({"timestamp", string_milli_epoch()});
+  async_get<http::empty_body, __SECURITY_CODES::USER_DATA>("/fapi/v1/openOrder",
+                                                           msg, std::move(cb));
+}
+
+void stream::async_read(messages::current_open_order_all* msg,
+                        DefaultHandler<messages::current_open_order_all> cb)
+{
+  namespace http = boost::beast::http;
+  msg->insert_kv({"timestamp", string_milli_epoch()});
+  async_get<http::empty_body, __SECURITY_CODES::USER_DATA>("/fapi/v1/allOrders",
+                                                           msg, std::move(cb));
 }
 
 void stream::async_read(messages::exchange_info* msg,

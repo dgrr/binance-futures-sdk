@@ -156,6 +156,7 @@ struct orderbook : public query_args
   std::vector<price_point> bids;  // bids
   std::vector<price_point> asks;  // asks
 
+  orderbook() = delete;
   orderbook(const std::string& symbol)
       : query_args{{"symbol", symbol}}
   {
@@ -202,6 +203,7 @@ struct recent_trades : public query_args
 
   std::vector<trade> trades;
 
+  recent_trades() = delete;
   recent_trades(const std::string& symbol)
       : query_args{{"symbol", symbol}}
   {
@@ -231,6 +233,7 @@ struct mark_price : public query_args
   time_point_t next_funding_time;  // nextFundingTime
   time_point_t time;               // time
 
+  mark_price() = delete;
   // TODO: Support vector of mark_price
   mark_price(const std::string& symbol)
       : query_args{{"symbol", symbol}}
@@ -256,6 +259,7 @@ struct price_ticker : public query_args
   double price;        // price
   time_point_t time;   // time
 
+  price_ticker() = delete;
   // TODO: Support multiple
   price_ticker(const std::string& symbol)
       : query_args{{"symbol", symbol}}
@@ -284,10 +288,7 @@ struct get_position_mode : public query_args
 {
   bool dual_position;
 
-  get_position_mode()
-      : query_args{}
-  {
-  }
+  get_position_mode()        = default;
   get_position_mode& operator=(const json::object& jb)
   {
     json::value_to(jb, "dualSidePosition", dual_position);
@@ -321,6 +322,7 @@ struct kline_data : public query_args
 
   std::vector<kline> klines;
 
+  kline_data() = delete;
   // TODO: Interval to ENUM
   kline_data(const std::string& symbol, const std::string& interval)
       : query_args{{"symbol", symbol}, {"interval", interval}}
@@ -382,6 +384,7 @@ struct place_order : public query_args
 {
   order_base result;
 
+  place_order() = delete;
   place_order(const std::string& symbol, order_side side, order_type type)
       : query_args{{"symbol", symbol},
                    {"side", order_side_string[side]},
@@ -438,6 +441,7 @@ struct cancel_order : public query_args
 {
   order_base result;
 
+  cancel_order() = delete;
   cancel_order(const std::string& symbol, int64_t order_id)
       : query_args{{"symbol", symbol}, {"orderId", order_id}}
   {
@@ -455,6 +459,64 @@ struct cancel_order : public query_args
   cancel_order& operator=(const json::object& jb)
   {
     result = jb;
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#cancel-all-open-orders-trade
+struct cancel_order_all : public query_args
+{
+  int code;
+  string_type msg;
+
+  cancel_order_all() = delete;
+  cancel_order_all(const std::string& symbol)
+      : query_args{{"symbol", symbol}}
+  {
+  }
+
+  setter(cancel_order_all&, set_recv_window, int64_t, "recvWindow", win);
+
+  cancel_order_all& operator=(const json::object& jb)
+  {
+    _value_to("code", code);
+    _value_to("msg", msg);
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#query-current-open-order-user_data
+struct current_open_order : public query_args
+{
+  order_base result;
+
+  current_open_order() = delete;
+  current_open_order(const std::string& symbol)
+      : query_args{{"symbol", symbol}}
+  {
+  }
+  setter(current_open_order&, set_order_id, int64_t, "orderId", order_id);
+  setter(current_open_order&, set_client_order_id, const std::string&,
+         "origClientOrderId", id);
+  setter(current_open_order&, set_recv_window, int64_t, "recvWindow", win);
+
+  current_open_order& operator=(const json::object& jb)
+  {
+    result = jb;
+    return *this;
+  }
+};
+// https://binance-docs.github.io/apidocs/futures/en/#current-all-open-orders-user_data
+struct current_open_order_all : public query_args
+{
+  std::vector<order_base> orders;
+
+  current_open_order_all() = default;
+  setter(current_open_order_all&, set_symbol, const std::string&, "symbol",
+         symbol);
+  setter(current_open_order_all&, set_recv_window, int64_t, "recvWindow", win);
+
+  current_open_order_all& operator=(const json::array& jr)
+  {
+    json::value_to(jr, orders);
     return *this;
   }
 };
