@@ -683,40 +683,40 @@ void stream::async_read(messages::exchange_info* msg,
                         DefaultHandler<messages::exchange_info> cb)
 {
   namespace http = boost::beast::http;
-  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/exchangeInfo",
-                                                       msg, std::move(cb));
+  async_get<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/exchangeInfo",
+                                                      msg, std::move(cb));
 }
 
 void stream::async_read(messages::orderbook* msg,
                         DefaultHandler<messages::orderbook> cb)
 {
   namespace http = boost::beast::http;
-  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/depth", msg,
-                                                       std::move(cb));
+  async_get<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/depth", msg,
+                                                      std::move(cb));
 }
 
 void stream::async_read(messages::recent_trades* msg,
                         DefaultHandler<messages::recent_trades> cb)
 {
   namespace http = boost::beast::http;
-  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/klines", msg,
-                                                       std::move(cb));
+  async_get<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/klines", msg,
+                                                      std::move(cb));
 }
 
 void stream::async_read(messages::mark_price* msg,
                         DefaultHandler<messages::mark_price> cb)
 {
   namespace http = boost::beast::http;
-  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/premiumIndex",
-                                                       msg, std::move(cb));
+  async_get<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/premiumIndex",
+                                                      msg, std::move(cb));
 }
 
 void stream::async_read(messages::price_ticker* msg,
                         DefaultHandler<messages::price_ticker> cb)
 {
   namespace http = boost::beast::http;
-  async_post<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/ticker/price",
-                                                       msg, std::move(cb));
+  async_get<http::empty_body, __SECURITY_CODES::NONE>("/fapi/v1/ticker/price",
+                                                      msg, std::move(cb));
 }
 
 void stream::async_ping()
