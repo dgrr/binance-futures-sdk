@@ -147,19 +147,18 @@ private:
         auto it = data_->bids.find(price);
         if (it == data_->bids.end())
         {
-          data_->bids.insert(
-              {price, std::make_shared<price_point>(v.price, v.qty)});
+          if (v.qty > 0)
+            data_->bids.insert(
+                {price, std::make_shared<price_point>(v.price, v.qty)});
           continue;
         }
 
         if (v.qty == 0)
         {
-          std::cout << it->first << " erased" << std::endl;
           data_->bids.erase(it);
         }
         else
         {
-          std::cout << it->first << " updated to " << v.qty << std::endl;
           it->second->size = v.qty;
         }
       }
@@ -171,22 +170,26 @@ private:
         auto it = data_->asks.find(price);
         if (it == data_->asks.end())
         {
-          data_->asks.insert(
-              {price, std::make_shared<price_point>(v.price, v.qty)});
+          if (v.qty > 0)
+            data_->asks.insert(
+                {price, std::make_shared<price_point>(v.price, v.qty)});
           continue;
         }
 
         if (v.qty == 0)
         {
-          std::cout << it->first << " erased" << std::endl;
           data_->asks.erase(it);
         }
         else
         {
-          std::cout << it->first << " updated to " << v.qty << std::endl;
           it->second->size = v.qty;
         }
       }
+
+      std::cout << "Spread: "
+                << data_->asks.rbegin()->second->price
+                       - data_->bids.rbegin()->second->price
+                << std::endl;
     }
 
     read();
@@ -260,8 +263,9 @@ private:
         auto it = data_->bids.find(price);
         if (it == data_->bids.end())
         {
-          data_->bids.insert(
-              {price, std::make_shared<price_point>(v.price, v.qty)});
+          if (v.qty > 0)
+            data_->bids.insert(
+                {price, std::make_shared<price_point>(v.price, v.qty)});
           continue;
         }
 
@@ -282,19 +286,18 @@ private:
         auto it = data_->asks.find(price);
         if (it == data_->asks.end())
         {
-          data_->asks.insert(
-              {price, std::make_shared<price_point>(v.price, v.qty)});
+          if (v.qty > 0)
+            data_->asks.insert(
+                {price, std::make_shared<price_point>(v.price, v.qty)});
           continue;
         }
 
         if (v.qty == 0)
         {
-          std::cout << it->first << " erased" << std::endl;
           data_->asks.erase(it);
         }
         else
         {
-          std::cout << it->first << " updated to " << v.qty << std::endl;
           it->second->size = v.qty;
         }
       }
@@ -309,7 +312,8 @@ private:
     {
       using namespace std::placeholders;
       api_.async_read<binance::http::messages::orderbook>(
-          std::bind(&WebSocketSync::on_orderbook_read, this, _1), symbol_);
+          std::bind(&WebSocketSync::on_orderbook_read, this, _1), symbol_,
+          1000);
     }
 
     read();
@@ -318,7 +322,7 @@ private:
   void on_orderbook_read(binance::http::messages::orderbook* book)
   {
     std::string_view e;
-    int64_t U;
+    int64_t u;
     std::vector<std::string> msgs;
 
     // filter out queued_messages_
@@ -327,7 +331,7 @@ private:
       const binance::json::object& jb = parser_.parse(v).root();
 
       if (jb["e"].get(e) == simdjson::SUCCESS
-          && jb["U"].get(U) == simdjson::SUCCESS && U > book->last_update_id)
+          && jb["u"].get(u) == simdjson::SUCCESS && u > book->last_update_id)
       {
         // std::cout << book->last_update_id << " || " << U <<
         // std::endl;
@@ -355,6 +359,7 @@ private:
     {
       const binance::json::object& jb = parser_.parse(v).root();
       binance::websocket::messages::book_depth bd;
+      std::cout << "Processing: " << v << std::endl;
 
       bd = jb;
       for (auto& v : bd.bids)

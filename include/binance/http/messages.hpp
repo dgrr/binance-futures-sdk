@@ -157,8 +157,8 @@ struct orderbook : public query_args
   std::vector<price_point> asks;  // asks
 
   orderbook() = delete;
-  orderbook(const std::string& symbol)
-      : query_args{{"symbol", symbol}}
+  orderbook(const std::string& symbol, size_t limit = 500)
+      : query_args{{"symbol", symbol}, {"limit", limit}}
   {
   }
 
