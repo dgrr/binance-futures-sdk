@@ -12,6 +12,10 @@ void parse_args(int argc, char* argv[],
   namespace opt = boost::program_options;
 
   desc.add_options()("help,h", "Help message")(
+      "symbol,s", opt::value<std::string>()->default_value("btcusdt"),
+      "Symbol to be subscribed to")(
+      "interval,I", opt::value<std::string>()->default_value("1m"),
+      "Candle interval")(
       "config,c", opt::value<std::string>()->default_value("binance.conf"),
       "Binance configuration file")(
       "url,U", opt::value<std::string>()->default_value(BINANCE_DEFAULT_URL),
@@ -28,11 +32,12 @@ class WebSocket : public std::enable_shared_from_this<WebSocket>
   binance::json::parser parser_;
 
 public:
-  WebSocket(binance::websocket::stream& ws)
+  WebSocket(std::string symbol, std::string interv,
+            binance::websocket::stream& ws)
       : ws_(ws)
   {
     using namespace binance::websocket;
-    ws_.subscribe(subscribe_to::kline("btcusdt", "1m"));
+    ws_.subscribe(subscribe_to::kline(symbol, interv));
   }
 
   void start()
@@ -48,6 +53,9 @@ private:
     ws_.async_read(buffer_, [this, self](boost::system::error_code ec) {
       if (ec)
         throw ec;
+
+      std::cout << "recv: " << boost::beast::buffers_to_string(buffer_.data())
+                << std::endl;
 
       binance::websocket::messages::kline kl;
       const binance::json::object& data = parser_.parse(buffer_).root();
@@ -95,7 +103,9 @@ int main(int argc, char* argv[])
   {
     ws.connect();
 
-    std::make_shared<WebSocket>(ws)->start();
+    std::make_shared<WebSocket>(args["symbol"].as<std::string>(),
+                                args["interval"].as<std::string>(), ws)
+        ->start();
 
     ioc.run();
   }
