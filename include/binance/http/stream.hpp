@@ -133,7 +133,7 @@ class stream
   boost::beast::flat_buffer buffer_;
   json::parser parser_;
 
-  std::list<boost::asio::deadline_timer> timers_;
+  std::vector<boost::asio::deadline_timer> timers_;
 
   bool is_open_;
   std::list<__request_elem> queue_;
@@ -318,12 +318,15 @@ bool stream::is_open() const
 
 void stream::clear_timers()
 {
-  for (auto it = timers_.begin(); it != timers_.end(); ++it)
+  for (auto it = timers_.begin(); it != timers_.end();)
   {
     if (it->expires_at() < boost::posix_time::second_clock::local_time())
     {
       timers_.erase(it);
+      it = timers_.begin();
     }
+    else
+      ++it;
   }
 }
 
