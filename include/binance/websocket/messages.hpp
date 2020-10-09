@@ -303,7 +303,46 @@ struct book_depth
   }
 };
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-info-streams
+struct blvt_info
+{
+  struct basket
+  {
+    std::string_view symbol;  // s
+    double position;          // n
+    basket& operator=(const json::object& jb)
+    {
+      _value_to("s", symbol);
+      _value_to("n", position);
+      return *this;
+    }
+  };
+
+  time_point_t event_time;      // E
+  std::string_view event_type;  // e
+  std::string_view blvt_name;   // s
+  int target_leverage;          // t
+  double token;                 // m
+  double nav;                   // n
+  double leverage;              // l
+  double funding_ratio;         // f
+  std::vector<basket> baskets;  // b
+
+  blvt_info& operator=(const json::object& jb)
+  {
+    _value_to("e", event_type);
+    _value_to("E", event_time);
+    _value_to("s", blvt_name);
+    _value_to("m", token);
+    _value_to("b", baskets);
+    _value_to("n", nav);
+    _value_to("l", leverage);
+    _value_to("t", target_leverage);
+    _value_to("f", funding_ratio);
+    return *this;
+  }
+};
 // https://binance-docs.github.io/apidocs/futures/en/#blvt-nav-kline-candlestick-streams
+using blvt_nav_kline = kline;
 // https://binance-docs.github.io/apidocs/futures/en/#event-user-data-stream-expired
 struct user_data_expired
 {

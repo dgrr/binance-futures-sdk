@@ -189,7 +189,7 @@ private:
       std::cout << "Spread: "
                 << data_->asks.rbegin()->second->price
                        - data_->bids.rbegin()->second->price
-                << std::endl;
+                << "\r" << std::flush;
     }
 
     read();

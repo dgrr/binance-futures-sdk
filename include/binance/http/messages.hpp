@@ -73,15 +73,15 @@ struct exchange_info : public query_args
 {
   struct rate_limit
   {
-    string_type interval;    // interval
     int interval_num;        // intervalNum
     int limit;               // limit
+    string_type interval;    // interval
     string_type limit_type;  // rateLimitType
     rate_limit& operator=(const json::object& jb)
     {
-      _value_to("interval", interval);
       _value_to("intervalNum", interval_num);
       _value_to("limit", limit);
+      _value_to("interval", interval);
       _value_to("rateLimitType", limit_type);
       return *this;
     }
@@ -108,16 +108,16 @@ struct exchange_info : public query_args
     // TODO: timeInForce
     symbol_data& operator=(const json::object& jb)
     {
-      _value_to("symbol", symbol);
-      _value_to("status", status);
-      _value_to("mainMarginPercent", m_margin_pct);
-      _value_to("requiredMarginPercent", r_margin_pct);
-      _value_to("baseAsset", base_asset);
-      _value_to("quoteAsset", quote_asset);
       _value_to("pricePrecision", price_precision);
       _value_to("quantityPrecision", qty_precision);
       _value_to("baseAssetPrecision", base_precision);
       _value_to("quotePrecision", quote_precision);
+      _value_to("symbol", symbol);
+      _value_to("status", status);
+      _value_to("baseAsset", base_asset);
+      _value_to("quoteAsset", quote_asset);
+      _value_to("mainMarginPercent", m_margin_pct);
+      _value_to("requiredMarginPercent", r_margin_pct);
       _value_to("settlePlan", settle_plan);
       _value_to("triggerProtect", trigger_protect);
       return *this;
