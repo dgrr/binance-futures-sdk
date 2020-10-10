@@ -64,12 +64,21 @@ context. (with Boost.ASIO/Boost.Beast should be easy to do it).
 Handling OS signals is up to you. With Boost.ASIO you can handle signals easily.
 
 ## Build examples
+Usual building:
 ```bash
 git clone https://github.com/dgrr/binance-futures-sdk
 cd binance-futures-sdk
-git submodule update --init
+git submodule update --init --recursive
 mkdir build
 cd build
 cmake -DBINANCE_BUILD_EXAMPLES:BOOL=ON ..
-cmake --build . --target binance-websocket-example
+cmake --build . --target all
+```
+
+Building with Docker:
+```bash
+git clone https://github.com/dgrr/binance-futures-sdk
+cd binance-futures-sdk
+git submodule update --init --recursive
+./build.sh
 ```
