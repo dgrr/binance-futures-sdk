@@ -71,7 +71,7 @@ cd binance-futures-sdk
 git submodule update --init --recursive
 mkdir build
 cd build
-cmake -DBINANCE_BUILD_EXAMPLES:BOOL=ON ..
+cmake -DBINANCE_DISABLE_THREADING:BOOL=ON -DBINANCE_USE_STRING_VIEW:BOOL=ON -DBINANCE_BUILD_EXAMPLES:BOOL=ON ..
 cmake --build . --target all
 ```
 
