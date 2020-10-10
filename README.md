@@ -68,7 +68,7 @@ Usual building:
 ```bash
 git clone https://github.com/dgrr/binance-futures-sdk
 cd binance-futures-sdk
-git submodule update --init --recursive
+git submodule update --init
 mkdir build
 cd build
 cmake -DBINANCE_DISABLE_THREADING:BOOL=ON -DBINANCE_USE_STRING_VIEW:BOOL=ON -DBINANCE_BUILD_EXAMPLES:BOOL=ON ..
@@ -79,6 +79,6 @@ Building with Docker:
 ```bash
 git clone https://github.com/dgrr/binance-futures-sdk
 cd binance-futures-sdk
-git submodule update --init --recursive
+git submodule update --init
 ./build.sh
 ```
