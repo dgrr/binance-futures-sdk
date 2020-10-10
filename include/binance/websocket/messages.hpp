@@ -396,6 +396,39 @@ struct user_margin_call
 };
 // https://binance-docs.github.io/apidocs/futures/en/#event-balance-and-position-update
 // https://binance-docs.github.io/apidocs/futures/en/#event-order-update
+struct user_order_update
+{
+  time_point_t order_time;             // T
+  int64_t order_id;                    // i
+  int64_t trade_id;                    // t
+  std::string_view symbol;             // s
+  std::string_view client_oid;         // c
+  std::string_view side;               // S
+  std::string_view order_type;         // o
+  std::string_view time_in_force;      // f
+  std::string_view exec_type;          // x
+  std::string_view status;             // X
+  std::string_view commission_asset;   // N
+  std::string_view stop_working_type;  // wt
+  std::string_view orig_order_type;    // ot
+  std::string_view pos_side;           // ps
+  double orig_qty;                     // q
+  double orig_price;                   // p
+  double avg_price;                    // ap
+  double stop_price;                   // sp
+  double last_filled_qty;              // l
+  double acc_qty;                      // z
+  double last_filled_price;            // L
+  double comission;                    // n
+  double bid_notional;                 // b
+  double ask_notional;                 // a
+  double closed_all;                   // cp
+  double activation_price;             // ap
+  double callback_rate;                // cr
+  double realized_profit;              // rp
+  bool is_maker;                       // m
+  bool is_reduce_only;                 // R
+};
 #undef _value_to
 }  // namespace messages
 }  // namespace websocket
