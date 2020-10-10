@@ -124,6 +124,7 @@ class stream
   boost::asio::ssl::context ctx_;
   http_stream_t stream_;
   boost::urls::url base_url_;
+  boost::asio::deadline_timer timeout_;
   // the resolver is here because if you reset the connection many times
   // the DNS can fail. Don't know why but I got a lot of errors resetting the
   // connection.
@@ -138,7 +139,7 @@ class stream
   bool is_open_;
   std::list<__request_elem> queue_;
   boost::beast::http::response<boost::beast::http::string_body> response_;
-  bool is_writing_ = false;
+  bool is_writing_;
 
 public:
   stream()               = delete;
@@ -262,16 +263,20 @@ private:
   really_inline void parse_response(binance::error& ec, JSONValue& v,
                                     const std::string& body);
   really_inline void async_ping();
+  really_inline void enable_writing();
+  really_inline void disable_writing();
 };
 
 stream::stream(binance::io_context& ioc, auth_opts opts,
                const std::string& base_url,
                boost::asio::ssl::context::method method)
     : ioc_(ioc)
+    , timeout_(ioc)
     , base_url_(base_url)
     , ctx_(method)
     , auth_(opts)
     , is_open_(false)
+    , is_writing_(false)
 {
 }
 
@@ -328,6 +333,23 @@ void stream::clear_timers()
     else
       ++it;
   }
+}
+
+void stream::disable_writing()
+{
+  is_writing_ = false;
+  timeout_.cancel();
+}
+
+void stream::enable_writing()
+{
+  is_writing_ = true;
+  timeout_.cancel();
+  timeout_.expires_from_now(boost::posix_time::seconds(15));
+  timeout_.async_wait([&](boost::system::error_code ec) {
+    if (!ec && is_writing_)
+      stream_->next_layer().cancel();
+  });
 }
 
 void stream::async_connect()
@@ -463,7 +485,10 @@ void stream::on_write(boost::system::error_code const& ec, size_t size)
   namespace http = boost::beast::http;
   boost::ignore_unused(size);
   if (ec)
+  {
+    disable_writing();
     throw ec;
+  }
 
   response_.clear();
   response_.body().clear();
@@ -475,10 +500,10 @@ void stream::on_write(boost::system::error_code const& ec, size_t size)
 // in case the request can be skipped and not re-tried.
 void stream::on_read(boost::system::error_code const& ec, size_t size)
 {
+  boost::ignore_unused(size);
   namespace http = boost::beast::http;
 
-  boost::ignore_unused(size);
-  is_writing_ = false;
+  disable_writing();
   if (ec)
     throw ec;
 
@@ -527,7 +552,7 @@ really_inline void stream::next_async_request()
 template<class T>
 really_inline void stream::do_write(boost::beast::http::request<T>& req)
 {
-  is_writing_ = true;
+  enable_writing();
   boost::beast::http::async_write(
       *stream_, req, boost::beast::bind_front_handler(&stream::on_write, this));
 }
