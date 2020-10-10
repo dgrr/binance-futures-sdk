@@ -125,7 +125,6 @@ struct mini_ticker_all
 struct ticker
 {
   std::string_view event_type;  // e
-  time_point_t event_time;      // E
   std::string_view symbol;      // s
   double price_change;          // p
   double price_change_pct;      // P
@@ -137,14 +136,15 @@ struct ticker
   double low_price;             // l
   double base_vol;              // v
   double quote_vol;             // q
-  // TODO: O, C
-  int64_t first_trade_id;  // F
-  int64_t last_trade_id;   // L
-  int64_t trades;          // n
+  time_point_t event_time;      // E
+  time_point_t st_open_time;    // O
+  time_point_t st_close_time;   // C
+  int64_t first_trade_id;       // F
+  int64_t last_trade_id;        // L
+  int64_t trades;               // n
   ticker& operator=(const json::object& jb)
   {
     _value_to("e", event_type);
-    _value_to("E", event_time);
     _value_to("s", symbol);
     _value_to("p", price_change);
     _value_to("P", price_change_pct);
@@ -156,6 +156,9 @@ struct ticker
     _value_to("l", low_price);
     _value_to("v", base_vol);
     _value_to("q", quote_vol);
+    _value_to("E", event_time);
+    _value_to("O", st_open_time);
+    _value_to("C", st_close_time);
     _value_to("F", first_trade_id);
     _value_to("L", last_trade_id);
     _value_to("n", trades);
@@ -257,11 +260,13 @@ struct price_point
 // https://binance-docs.github.io/apidocs/futures/en/#partial-book-depth-streams
 struct partial_book_depth
 {
-  std::string_view event_type;  // e
-  std::string_view symbol;      // s
-  time_point_t event_time;      // E
-  time_point_t x_time;          // T
-  // TODO: What is U and u and pu
+  std::string_view event_type;    // e
+  std::string_view symbol;        // s
+  time_point_t event_time;        // E
+  time_point_t x_time;            // T
+  int64_t first_id;               // U
+  int64_t final_id;               // u
+  int64_t last_final_id;          // pu
   std::vector<price_point> bids;  // b
   std::vector<price_point> asks;  // a
   partial_book_depth& operator=(const json::object& jb)
@@ -270,6 +275,9 @@ struct partial_book_depth
     _value_to("s", symbol);
     _value_to("E", event_time);
     _value_to("T", x_time);
+    _value_to("U", first_id);
+    _value_to("u", final_id);
+    _value_to("pu", last_final_id);
     _value_to("b", bids);
     _value_to("a", asks);
     return *this;
@@ -364,16 +372,17 @@ struct user_margin_call
     std::string_view pos_side;     // ps
     std::string_view margin_type;  // mt
     double pos_amount;             // pa
-    // TODO: `iw` issolated wallet?
-    double mark_price;  // mp
-    double u_pnl;       // up
-    double m_margin;    // mm
+    double isolated_wallet;        // iw
+    double mark_price;             // mp
+    double u_pnl;                  // up
+    double m_margin;               // mm
     position& operator=(const json::object& jb)
     {
       _value_to("s", symbol);
       _value_to("ps", pos_side);
       _value_to("mt", margin_type);
       _value_to("pa", pos_amount);
+      _value_to("iw", isolated_wallet);
       _value_to("mp", mark_price);
       _value_to("up", u_pnl);
       _value_to("mm", m_margin);
@@ -395,6 +404,69 @@ struct user_margin_call
   }
 };
 // https://binance-docs.github.io/apidocs/futures/en/#event-balance-and-position-update
+struct user_position_update
+{
+  struct updated_data
+  {
+    struct balance
+    {
+      std::string_view asset;       // a
+      double wallet_balance;        // wb
+      double cross_wallet_balance;  // cw
+      balance& operator=(const json::object& jb)
+      {
+        _value_to("a", asset);
+        _value_to("wb", wallet_balance);
+        _value_to("cw", cross_wallet_balance);
+        return *this;
+      }
+    };
+    struct position
+    {
+      std::string_view symbol;       // s
+      std::string_view margin_type;  // mt
+      std::string_view pos_side;     // ps
+      double position_amount;        // pa
+      double entry_price;            // ep
+      double acc_realized;           // cr
+      double unrealized_pnl;         // up
+      double isolated_wallet;        // iw
+      position& operator=(const json::object& jb)
+      {
+        _value_to("s", symbol);
+        _value_to("mt", margin_type);
+        _value_to("ps", pos_side);
+        _value_to("pa", position_amount);
+        _value_to("ep", entry_price);
+        _value_to("cr", acc_realized);
+        _value_to("up", unrealized_pnl);
+        _value_to("iw", isolated_wallet);
+        return *this;
+      }
+    };
+
+    std::string_view event_reason_type;  // m
+    std::vector<balance> balances;       // B
+    std::vector<position> positions;     // P
+    updated_data& operator=(const json::object& jb)
+    {
+      _value_to("m", event_reason_type);
+      _value_to("B", balances);
+      _value_to("P", positions);
+      return *this;
+    }
+  };
+  time_point_t event_time;   // E
+  int64_t transaction;       // T
+  updated_data update_data;  // a
+  user_position_update& operator=(const json::object& jb)
+  {
+    _value_to("E", event_time);
+    _value_to("T", transaction);
+    _value_to("a", update_data);
+    return *this;
+  }
+};
 // https://binance-docs.github.io/apidocs/futures/en/#event-order-update
 struct user_order_update
 {
@@ -428,6 +500,40 @@ struct user_order_update
   double realized_profit;              // rp
   bool is_maker;                       // m
   bool is_reduce_only;                 // R
+  user_order_update& operator=(const json::object& jb)
+  {
+    _value_to("T", order_time);
+    _value_to("i", order_id);
+    _value_to("t", trade_id);
+    _value_to("s", symbol);
+    _value_to("c", client_oid);
+    _value_to("S", side);
+    _value_to("o", order_type);
+    _value_to("f", time_in_force);
+    _value_to("x", exec_type);
+    _value_to("X", status);
+    _value_to("N", commission_asset);
+    _value_to("wt", stop_working_type);
+    _value_to("ot", orig_order_type);
+    _value_to("ps", pos_side);
+    _value_to("q", orig_qty);
+    _value_to("p", orig_price);
+    _value_to("ap", avg_price);
+    _value_to("sp", stop_price);
+    _value_to("l", last_filled_qty);
+    _value_to("z", acc_qty);
+    _value_to("L", last_filled_price);
+    _value_to("n", comission);
+    _value_to("b", bid_notional);
+    _value_to("a", ask_notional);
+    _value_to("cp", closed_all);
+    _value_to("ap", activation_price);
+    _value_to("cr", callback_rate);
+    _value_to("rp", realized_profit);
+    _value_to("m", is_maker);
+    _value_to("R", is_reduce_only);
+    return *this;
+  }
 };
 #undef _value_to
 }  // namespace messages
