@@ -125,9 +125,6 @@ class stream
   http_stream_t stream_;
   boost::urls::url base_url_;
   boost::asio::deadline_timer timeout_;
-  // the resolver is here because if you reset the connection many times
-  // the DNS can fail. Don't know why but I got a lot of errors resetting the
-  // connection.
   boost::asio::ip::tcp::resolver::results_type resolve_results_;
   auth_opts auth_;
   // TODO: One buffer and one parser per stream?
@@ -228,15 +225,10 @@ public:
   void renew_listen_key();
 
 private:
-  // update every 1h the DNS records.
-  void resolve_timer();
   // ping every 15 seconds.
   void ping_timer();
   // clear all the timers that expired
   void clear_timers();
-  void on_resolve(std::shared_ptr<boost::asio::ip::tcp::resolver>,
-                  boost::system::error_code const&,
-                  const boost::asio::ip::tcp::resolver::results_type&);
   void on_connect(boost::system::error_code const&,
                   const boost::asio::ip::tcp::endpoint&);
   void on_write(boost::system::error_code const&, size_t);
@@ -374,7 +366,6 @@ void stream::async_connect()
   {
     boost::asio::ip::tcp::resolver resolver(ioc_);
     resolve_results_ = resolver.resolve(host, port);
-    resolve_timer();
   }
 
   using std::placeholders::_1;
@@ -383,43 +374,6 @@ void stream::async_connect()
   boost::asio::async_connect(boost::beast::get_lowest_layer(*stream_),
                              resolve_results_,
                              std::bind(&stream::on_connect, this, _1, _2));
-}
-
-void stream::on_resolve(
-    std::shared_ptr<boost::asio::ip::tcp::resolver> resolver,
-    boost::system::error_code const& ec,
-    const boost::asio::ip::tcp::resolver::results_type& results)
-{
-  if (not ec)
-    resolve_results_ = results;
-  resolve_timer();
-}
-
-// update the DNS resolution every hour
-void stream::resolve_timer()
-{
-  timers_.emplace_back(ioc_);
-
-  auto& timer = timers_.back();
-  timer.expires_from_now(boost::posix_time::hours(1));
-  timer.async_wait([this](boost::system::error_code ec) {
-    if (ec)
-      return;
-
-    auto resolver    = std::make_shared<boost::asio::ip::tcp::resolver>(ioc_);
-    std::string host = base_url_.host();
-    std::string port = base_url_.port().to_string();
-    if (port.empty())
-      port = "443";
-
-    using std::placeholders::_1;
-    using std::placeholders::_2;
-
-    clear_timers();
-
-    resolver->async_resolve(
-        host, port, std::bind(&stream::on_resolve, this, resolver, _1, _2));
-  });
 }
 
 void stream::renew_listen_key()
