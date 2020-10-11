@@ -138,6 +138,10 @@ class stream
   boost::beast::http::response<boost::beast::http::string_body> response_;
   bool is_writing_;
 
+  size_t req_count_;
+  size_t rate_limit_;
+  boost::posix_time::seconds limit_window_;
+
 public:
   stream()               = delete;
   stream(const stream&)  = delete;
@@ -155,6 +159,7 @@ public:
   bool is_open() const;
   bool is_busy() const;
   void discard_next();
+  void set_rate_limit(size_t limit, boost::posix_time::seconds window);
   void async_connect();
   template<typename T, class... Args>
   void async_read(DefaultHandler<T>, Args... args);
@@ -227,6 +232,7 @@ public:
 private:
   // ping every 15 seconds.
   void ping_timer();
+  void rate_timer();
   // clear all the timers that expired
   void clear_timers();
   void on_connect(boost::system::error_code const&,
@@ -269,6 +275,9 @@ stream::stream(binance::io_context& ioc, auth_opts opts,
     , auth_(opts)
     , is_open_(false)
     , is_writing_(false)
+    , rate_limit_(0)
+    , req_count_(0)
+    , limit_window_(0)
 {
 }
 
@@ -277,6 +286,13 @@ stream::~stream()
   // avoid exceptions using error_code
   if (stream_)
     close();
+}
+
+void stream::set_rate_limit(size_t limit, boost::posix_time::seconds window)
+{
+  rate_limit_   = limit;
+  limit_window_ = window;
+  rate_timer();
 }
 
 void stream::close()
@@ -336,6 +352,8 @@ void stream::disable_writing()
 void stream::enable_writing()
 {
   is_writing_ = true;
+  req_count_++;
+
   timeout_.cancel();
   timeout_.expires_from_now(boost::posix_time::seconds(15));
   timeout_.async_wait([&](boost::system::error_code ec) {
@@ -419,6 +437,25 @@ void stream::ping_timer()
   });
 }
 
+void stream::rate_timer()
+{
+  timers_.emplace_back(ioc_);
+
+  auto& timer = timers_.back();
+  timer.expires_from_now(limit_window_);
+  timer.async_wait([this](boost::system::error_code ec) {
+    if (ec)
+      return;
+
+    clear_timers();
+
+    if (rate_limit_ > 0)
+      rate_timer();
+    req_count_ = 0;
+    next_async_request();
+  });
+}
+
 void stream::on_connect(boost::system::error_code const& ec,
                         const boost::asio::ip::tcp::endpoint& endpoint)
 {
@@ -493,7 +530,8 @@ void stream::on_read(boost::system::error_code const& ec, size_t size)
 
 really_inline void stream::next_async_request()
 {
-  if (not is_open() || queue_.empty() || is_writing_)
+  if (not is_open() || queue_.empty() || is_writing_
+      || (rate_limit_ > 0 && req_count_ >= rate_limit_))
     return;
 
   auto& e = queue_.front();
