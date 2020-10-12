@@ -89,6 +89,7 @@ struct __request_elem
       , cb_(cb)
   {
   }
+  __request_elem(const __request_elem&) = default;
 
   void operator()(const json::value& jv)
   {
@@ -502,7 +503,8 @@ void stream::on_read(boost::system::error_code const& ec, size_t size)
   if (res.result_int() != 200)
     throw binance::error{res.result_int(), res.body()};
 
-  auto& e = queue_.front();
+  __request_elem e = queue_.front();
+  queue_.pop_front();
 
   binance::error err;
   const json::value& v = parser_.parse(res.body()).root();
@@ -515,7 +517,6 @@ void stream::on_read(boost::system::error_code const& ec, size_t size)
   }
 
   e(v);
-  queue_.pop_front();
 
   auto it = res.base().find("Connection");
   if (it != res.base().end() && it->value() == "close")
@@ -535,10 +536,7 @@ really_inline void stream::next_async_request()
     return;
 
   auto& e = queue_.front();
-  if (!e.req_.index())
-    do_write(*boost::variant2::get<0>(e.req_));
-  else
-    do_write(*boost::variant2::get<1>(e.req_));
+  boost::variant2::visit([this](auto req) { do_write(*req); }, e.req_);
 }
 
 template<class T>
