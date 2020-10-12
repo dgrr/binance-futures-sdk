@@ -6,8 +6,7 @@
 constexpr auto BINANCE_DEFAULT_URL = "https://fapi.binance.com";
 constexpr auto BINANCE_WS_HOST     = "fstream.binance.com";
 
-#define BINANCE_VERSION_STRING \
-  "binance-futures-sdk/" BOOST_STRINGIZE(BINANCE_VERSION)
+#define BINANCE_VERSION_STRING "binance-futures-sdk/" BINANCE_FUTURES_VERSION
 
 namespace binance
 {

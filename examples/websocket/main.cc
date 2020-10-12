@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
   boost::program_options::variables_map args;
   boost::program_options::options_description desc(argv[0]);
 
-  std::cout << "Using Binance version " << BINANCE_VERSION << std::endl;
+  std::cout << "Using Binance version " << BINANCE_FUTURES_VERSION << std::endl;
 
   parse_args(argc, argv, desc, args);
   if (args.count("help"))
