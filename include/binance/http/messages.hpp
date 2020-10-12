@@ -328,8 +328,8 @@ struct kline_data : public query_args
       : query_args{{"symbol", symbol}, {"interval", interval}}
   {
   }
-  setter(kline_data&, set_start_time, size_t, "startTime", start);
-  setter(kline_data&, set_end_time, size_t, "endTime", end);
+  setter(kline_data&, set_start_time, int64_t, "startTime", start);
+  setter(kline_data&, set_end_time, int64_t, "endTime", end);
   setter(kline_data&, set_interval, const std::string&, "interval", interval);
   setter(kline_data&, set_limit, size_t, "limit", limit);
 

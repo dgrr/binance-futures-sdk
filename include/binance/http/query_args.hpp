@@ -66,6 +66,66 @@ public:
   {
     return args_;
   }
+  really_inline bool get(const std::string& key, std::string& value) const
+  {
+    for (auto& kv : args_)
+    {
+      if (kv.first == key)
+      {
+        value = boost::variant2::get<0>(kv.second);
+        return true;
+      }
+    }
+    return false;
+  }
+  really_inline bool get(const std::string& key, size_t& value) const
+  {
+    for (auto& kv : args_)
+    {
+      if (kv.first == key)
+      {
+        value = boost::variant2::get<1>(kv.second);
+        return true;
+      }
+    }
+    return false;
+  }
+  really_inline bool get(const std::string& key, int64_t& value) const
+  {
+    for (auto& kv : args_)
+    {
+      if (kv.first == key)
+      {
+        value = boost::variant2::get<2>(kv.second);
+        return true;
+      }
+    }
+    return false;
+  }
+  really_inline bool get(const std::string& key, bool& value) const
+  {
+    for (auto& kv : args_)
+    {
+      if (kv.first == key)
+      {
+        value = boost::variant2::get<3>(kv.second);
+        return true;
+      }
+    }
+    return false;
+  }
+  really_inline bool get(const std::string& key, double& value) const
+  {
+    for (auto& kv : args_)
+    {
+      if (kv.first == key)
+      {
+        value = boost::variant2::get<4>(kv.second);
+        return true;
+      }
+    }
+    return false;
+  }
   really_inline void insert_kv(key_value&& kv)
   {
     if (is_second_empty(kv))

@@ -1,6 +1,7 @@
 #ifndef BINANCE_HPP
 #define BINANCE_HPP
 
+#include <binance/definitions.hpp>
 #include <binance/http/stream.hpp>
 #include <binance/websocket/messages.hpp>
 #include <binance/websocket/stream.hpp>
