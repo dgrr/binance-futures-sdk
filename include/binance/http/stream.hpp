@@ -467,6 +467,7 @@ void stream::on_connect(boost::system::error_code const& ec,
   stream_->handshake(boost::asio::ssl::stream_base::client);
 
   is_open_ = true;
+  stream_->next_layer().non_blocking(true);
 
   next_async_request();
   ping_timer();
@@ -495,16 +496,20 @@ void stream::on_read(boost::system::error_code const& ec, size_t size)
   boost::ignore_unused(size);
   namespace http = boost::beast::http;
 
-  disable_writing();
   if (ec)
+  {
+    disable_writing();
     throw ec;
+  }
 
   auto& res = response_;
   if (res.result_int() != 200)
+  {
+    disable_writing();
     throw binance::error{res.result_int(), res.body()};
+  }
 
-  __request_elem e = queue_.front();
-  queue_.pop_front();
+  auto& e = queue_.front();
 
   binance::error err;
   const json::value& v = parser_.parse(res.body()).root();
@@ -513,10 +518,16 @@ void stream::on_read(boost::system::error_code const& ec, size_t size)
   {
     get_error_codes(err, v);
     if (err)
+    {
+      disable_writing();
       throw err;
+    }
   }
 
   e(v);
+
+  queue_.pop_front();
+  disable_writing();
 
   auto it = res.base().find("Connection");
   if (it != res.base().end() && it->value() == "close")
