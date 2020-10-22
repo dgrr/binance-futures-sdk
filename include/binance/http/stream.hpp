@@ -141,7 +141,7 @@ class stream
 
   size_t req_count_;
   size_t rate_limit_;
-  boost::posix_time::seconds limit_window_;
+  int limit_window_;
 
 public:
   stream()               = delete;
@@ -160,7 +160,7 @@ public:
   bool is_open() const;
   bool is_busy() const;
   void discard_next();
-  void set_rate_limit(size_t limit, boost::posix_time::seconds window);
+  void set_rate_limit(size_t limit, int window);
   void async_connect();
   template<typename T, class... Args>
   void async_read(DefaultHandler<T>, Args... args);
@@ -289,7 +289,7 @@ stream::~stream()
     close();
 }
 
-void stream::set_rate_limit(size_t limit, boost::posix_time::seconds window)
+void stream::set_rate_limit(size_t limit, int window)
 {
   rate_limit_   = limit;
   limit_window_ = window;
@@ -443,7 +443,7 @@ void stream::rate_timer()
   timers_.emplace_back(ioc_);
 
   auto& timer = timers_.back();
-  timer.expires_from_now(limit_window_);
+  timer.expires_from_now(boost::posix_time::seconds(limit_window_));
   timer.async_wait([this](boost::system::error_code ec) {
     if (ec)
       return;
