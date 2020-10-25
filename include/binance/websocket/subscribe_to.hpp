@@ -17,14 +17,40 @@ class topic_path
 protected:
   std::string topic_;
 
-public:
-  topic_path(const std::string& full_topic)
-      : topic_(full_topic)
+private:
+  void build_path_2(std::string v)
   {
+    if (v.size() == 0)
+      return;
+    topic_ += "@";
+    topic_ += v;
   }
-  topic_path(const std::string& symbol, const std::string& topic)
+
+  template<class... Args>
+  void build_path_2(std::string v, Args... args)
   {
-    topic_ = symbol + topic;
+    if (v.size() == 0)
+      return;
+    topic_ += "@";
+    topic_ += v;
+
+    build_path_2(std::forward<Args>(args)...);
+  }
+
+  template<class... Args>
+  void build_path(std::string v, Args... args)
+  {
+    topic_ = v;
+    if constexpr (sizeof...(args) > 0)
+      build_path_2(std::forward<Args>(args)...);
+    std::cout << topic_ << std::endl;
+  }
+
+public:
+  template<class... Args>
+  topic_path(Args... args)
+  {
+    build_path(std::forward<Args>(args)...);
   }
   const std::string& topic() const
   {
@@ -36,7 +62,7 @@ struct agg_trade : public topic_path
 {
   agg_trade() = delete;
   agg_trade(const std::string& symbol)
-      : topic_path(symbol, "@aggTrade")
+      : topic_path(symbol, "aggTrade")
   {
   }
 };
@@ -45,8 +71,7 @@ struct mark_price : public topic_path
 {
   mark_price() = delete;
   mark_price(const std::string& symbol, bool every_second = true)
-      : topic_path(symbol,
-                   "@markPrice" + std::string(every_second ? "@1s" : ""))
+      : topic_path(symbol, "markPrice", std::string(every_second ? "@1s" : ""))
   {
   }
 };
@@ -54,7 +79,7 @@ struct mark_price : public topic_path
 struct mark_price_all : public topic_path
 {
   mark_price_all(bool every_second = true)
-      : topic_path("!markPrice@arr" + std::string(every_second ? "@1s" : ""))
+      : topic_path("!markPrice", "arr" + std::string(every_second ? "@1s" : ""))
   {
   }
 };
@@ -63,7 +88,7 @@ struct kline : public topic_path
 {
   kline() = delete;
   kline(const std::string& symbol, const std::string& interval)
-      : topic_path(symbol, "@kline_" + interval)
+      : topic_path(symbol, "kline_" + interval)
   {
   }
 };
@@ -72,7 +97,7 @@ struct mini_ticker : public topic_path
 {
   mini_ticker() = delete;
   mini_ticker(const std::string& symbol)
-      : topic_path(symbol, "@miniTicker")
+      : topic_path(symbol, "miniTicker")
   {
   }
 };
@@ -80,7 +105,7 @@ struct mini_ticker : public topic_path
 struct mini_ticker_all : public topic_path
 {
   mini_ticker_all()
-      : topic_path("!miniTicker@arr")
+      : topic_path("!miniTicker", "arr")
   {
   }
 };
@@ -89,7 +114,7 @@ struct ticker : public topic_path
 {
   ticker() = delete;
   ticker(const std::string& symbol)
-      : topic_path(symbol, "@ticker")
+      : topic_path(symbol, "ticker")
   {
   }
 };
@@ -97,7 +122,7 @@ struct ticker : public topic_path
 struct ticker_all : public topic_path
 {
   ticker_all()
-      : topic_path("!ticker@arr")
+      : topic_path("!ticker", "arr")
   {
   }
 };
@@ -106,7 +131,7 @@ struct book_ticker : public topic_path
 {
   book_ticker() = delete;
   book_ticker(const std::string& symbol)
-      : topic_path(symbol, "@bookTicker")
+      : topic_path(symbol, "bookTicker")
   {
   }
 };
@@ -123,7 +148,7 @@ struct liq_order : public topic_path
 {
   liq_order() = delete;
   liq_order(const std::string& symbol)
-      : topic_path(symbol, "@forceOrder")
+      : topic_path(symbol, "forceOrder")
   {
   }
 };
@@ -131,7 +156,7 @@ struct liq_order : public topic_path
 struct liq_order_all : public topic_path
 {
   liq_order_all()
-      : topic_path("!forceOrder@arr")
+      : topic_path("!forceOrder", "arr")
   {
   }
 };
@@ -140,7 +165,17 @@ struct partial_book_depth : public topic_path
 {
   partial_book_depth() = delete;
   partial_book_depth(const std::string& symbol, const std::string& depth)
-      : topic_path(symbol, "@depth" + depth)
+      : topic_path(symbol, "depth" + depth)
+  {
+  }
+  partial_book_depth(const std::string& symbol, const std::string& depth,
+                     int ms)
+      : topic_path(symbol, "depth" + depth, std::to_string(ms) + "ms")
+  {
+  }
+  partial_book_depth(const std::string& symbol, const std::string& depth,
+                     const std::string& ms)
+      : topic_path(symbol, "depth" + depth, ms + "ms")
   {
   }
 };
@@ -148,9 +183,16 @@ struct partial_book_depth : public topic_path
 struct book_depth : public topic_path
 {
   book_depth() = delete;
-  book_depth(const std::string& symbol, int ms = 0)
-      : topic_path(
-          symbol, "@depth" + (ms == 0 ? "" : ("@" + std::to_string(ms) + "ms")))
+  book_depth(const std::string& symbol)
+      : topic_path(symbol, "depth")
+  {
+  }
+  book_depth(const std::string& symbol, int ms)
+      : topic_path(symbol, "depth", std::to_string(ms) + "ms")
+  {
+  }
+  book_depth(const std::string& symbol, const std::string& ms)
+      : topic_path(symbol, "depth", ms + "ms")
   {
   }
 };

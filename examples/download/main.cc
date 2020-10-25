@@ -30,9 +30,9 @@ class downloader : public std::enable_shared_from_this<downloader>
 public:
   downloader(binance::http::stream& api)
       : api_(api)
-      , kd_("btcusdt", "4h")
+      , kd_("btcusdt", "1h")
   {
-    api_.set_rate_limit(1000, boost::posix_time::seconds(60));
+    api_.set_rate_limit(1000, 60);
     kd_.set_limit(1500);
   }
   ~downloader()
@@ -48,23 +48,29 @@ private:
   void read()
   {
     int64_t end_time = 0;
-    kd_.get("endTime", end_time);
-    std::cout << "Getting klines with end_time = " << end_time << std::endl;
+    if (kd_.get("endTime", end_time))
+      std::cout << "Getting klines with end_time = " << end_time << std::endl;
+
     api_.async_read(&kd_, std::bind(&downloader::on_read, shared_from_this(),
                                     std::placeholders::_1));
   }
 
   void on_read(binance::http::messages::kline_data* kd)
   {
+    int64_t diff     = 0;
     int64_t min_time = std::numeric_limits<int64_t>::max();
-    int64_t end_time = 0;
     for (auto& kl : kd->klines)
       min_time = std::min(min_time, kl.open_time.time_since_epoch().count());
 
-    kd_.get("endTime", end_time);
-    if (end_time != min_time)
+    if (kd->klines.size() > 1)
+      diff = kd->klines[1].open_time.time_since_epoch().count()
+             - kd->klines[0].open_time.time_since_epoch().count();
+
+    std::cout << "Got " << kd->klines.size() << " klines" << std::endl;
+    if (kd->klines.size() == 1500)
     {
-      kd_.set_end_time(min_time);
+      kd_.set_start_time((min_time - diff * 1500) / 1000000);
+      kd_.set_end_time(min_time / 1000000);
       read();
     }
   }
