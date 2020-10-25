@@ -43,7 +43,6 @@ private:
     topic_ = v;
     if constexpr (sizeof...(args) > 0)
       build_path_2(std::forward<Args>(args)...);
-    std::cout << topic_ << std::endl;
   }
 
 public:
