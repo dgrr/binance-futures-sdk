@@ -68,6 +68,7 @@ private:
 
     std::cout << "Got " << kd->klines.size() << " klines" << std::endl;
     if (kd->klines.size() == 1500)
+
     {
       kd_.set_start_time((min_time - diff * 1500) / 1000000);
       kd_.set_end_time(min_time / 1000000);

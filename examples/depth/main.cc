@@ -121,14 +121,14 @@ public:
 private:
   void read()
   {
-    auto self = shared_from_this();
     buffer_.clear();
 
     using namespace std::placeholders;
-    ws_.async_read(buffer_, std::bind(&WebSocket::on_read, this, self, _1));
+    ws_.async_read(buffer_,
+                   std::bind(&WebSocket::on_read, shared_from_this(), _1));
   }
 
-  void on_read(std::shared_ptr<WebSocket> self, boost::system::error_code ec)
+  void on_read(boost::system::error_code ec)
   {
     if (ec)
       throw ec;
@@ -234,18 +234,17 @@ public:
 private:
   void read()
   {
-    auto self = shared_from_this();
     buffer_.clear();
 
     if (disabled_)
       return;
 
     using namespace std::placeholders;
-    ws_.async_read(buffer_, std::bind(&WebSocketSync::on_read, this, self, _1));
+    ws_.async_read(buffer_,
+                   std::bind(&WebSocketSync::on_read, shared_from_this(), _1));
   }
 
-  void on_read(std::shared_ptr<WebSocketSync> self,
-               boost::system::error_code ec)
+  void on_read(boost::system::error_code ec)
   {
     if (ec)
       throw ec;

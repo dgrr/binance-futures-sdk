@@ -48,27 +48,30 @@ public:
 private:
   void read()
   {
-    auto self = shared_from_this();
     buffer_.clear();
-    ws_.async_read(buffer_, [this, self](boost::system::error_code ec) {
-      if (ec)
-        throw ec;
+    ws_.async_read(buffer_, std::bind(&WebSocket::on_read, shared_from_this(),
+                                      std::placeholders::_1));
+  }
 
-      std::cout << "recv: " << boost::beast::buffers_to_string(buffer_.data())
-                << std::endl;
+  void on_read(boost::system::error_code ec)
+  {
+    if (ec)
+      throw ec;
 
-      binance::websocket::messages::kline kl;
-      const binance::json::object& data = parser_.parse(buffer_).root();
-      auto k                            = data["k"];
-      if (k.error() == simdjson::SUCCESS)
-      {
-        kl = k;
-        std::cout << (kl.closed ? "CLOSED: " : "OPEN: ") << kl.open_price
-                  << " | " << kl.trades << std::endl;
-      }
+    std::cout << "recv: " << boost::beast::buffers_to_string(buffer_.data())
+              << std::endl;
 
-      read();
-    });
+    binance::websocket::messages::kline kl;
+    const binance::json::object& data = parser_.parse(buffer_).root();
+    auto k                            = data["k"];
+    if (k.error() == simdjson::SUCCESS)
+    {
+      kl = k;
+      std::cout << (kl.closed ? "CLOSED: " : "OPEN: ") << kl.open_price << " | "
+                << kl.trades << std::endl;
+    }
+
+    read();
   }
 };
 

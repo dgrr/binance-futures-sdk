@@ -46,32 +46,36 @@ public:
 private:
   void read()
   {
-    auto self = shared_from_this();
     buffer_.clear();
-    ws_.async_read(buffer_, [this, self](boost::system::error_code ec) {
-      if (ec)
-        throw ec;
+    ws_.async_read(buffer_, std::bind(&WebSocket::on_read, shared_from_this(),
+                                      std::placeholders::_1));
+  }
 
-      std::string_view e;
-      const binance::json::object& data = parser_.parse(buffer_).root();
+  void on_read(boost::system::error_code ec)
+  {
+    if (ec)
+      throw ec;
 
-      if (data["e"].get(e) == simdjson::SUCCESS && e == "kline")
-      {
-        binance::websocket::messages::kline kl;
-        kl = data["k"];
-        std::cout << (kl.closed ? "CLOSED: " : "OPEN: ") << kl.open_price
-                  << " | " << kl.trades << std::endl;
-      }
-      else if (data["b"].error() == simdjson::SUCCESS && data["a"].error() == simdjson::SUCCESS)
-      {
-        binance::websocket::messages::book_ticker tk;
-        tk = data;
-        std::cout << "BEST BID: " << tk.best_bid_price
-                  << " | BEST ASK: " << tk.best_ask_price << std::endl;
-      }
+    std::string_view e;
+    const binance::json::object& data = parser_.parse(buffer_).root();
 
-      read();
-    });
+    if (data["e"].get(e) == simdjson::SUCCESS && e == "kline")
+    {
+      binance::websocket::messages::kline kl;
+      kl = data["k"];
+      std::cout << (kl.closed ? "CLOSED: " : "OPEN: ") << kl.open_price << " | "
+                << kl.trades << std::endl;
+    }
+    else if (data["b"].error() == simdjson::SUCCESS
+             && data["a"].error() == simdjson::SUCCESS)
+    {
+      binance::websocket::messages::book_ticker tk;
+      tk = data;
+      std::cout << "BEST BID: " << tk.best_bid_price
+                << " | BEST ASK: " << tk.best_ask_price << std::endl;
+    }
+
+    read();
   }
 };
 
