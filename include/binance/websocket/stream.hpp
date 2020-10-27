@@ -105,9 +105,17 @@ uint64_t stream::id() const
   return id_;
 }
 
+template<class Topic>
+inline constexpr bool topic_constraint =
+    std::is_base_of_v<binance::websocket::subscribe_to::topic_path, Topic>;
+
 template<typename... Topic>
 void stream::subscribe(Topic... topics)
 {
+  static_assert((topic_constraint<decltype(topics)> && ...),
+                "stream::subscribe only accepts method inheritating from "
+                "subscribe_to::topic_path");
+
   std::vector<std::string> vs;
   vs.resize(sizeof...(topics));
 
@@ -238,7 +246,7 @@ void stream::on_control_frame(boost::beast::websocket::frame_type frame,
   boost::ignore_unused(sv);
   if (frame == boost::beast::websocket::frame_type::ping)
   {
-    stream_->async_pong(nullptr, [](boost::system::error_code const& ec) {
+    stream_->async_pong("", [](boost::system::error_code const& ec) {
       boost::ignore_unused(ec);
     });
   }
