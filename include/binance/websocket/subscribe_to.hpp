@@ -7,6 +7,27 @@
 
 namespace binance
 {
+enum update_speed : size_t
+{
+  ms100  = 100,
+  ms250  = 250,
+  ms500  = 500,
+  ms1000 = 1000,
+  ms3000 = 3000,
+};
+
+std::string update_speed_to_string(update_speed ups)
+{
+  return std::to_string(ups) + "ms";
+}
+
+enum depth_range : size_t
+{
+  five   = 5,
+  ten    = 10,
+  twenty = 20
+};
+
 namespace websocket
 {
 namespace subscribe_to
@@ -70,7 +91,7 @@ struct mark_price : public topic_path
 {
   mark_price() = delete;
   mark_price(const std::string& symbol, bool every_second = true)
-      : topic_path(symbol, "markPrice", std::string(every_second ? "@1s" : ""))
+      : topic_path(symbol, "markPrice", std::string(every_second ? "1s" : ""))
   {
   }
 };
@@ -78,7 +99,7 @@ struct mark_price : public topic_path
 struct mark_price_all : public topic_path
 {
   mark_price_all(bool every_second = true)
-      : topic_path("!markPrice", "arr" + std::string(every_second ? "@1s" : ""))
+      : topic_path("!markPrice", "arr" + std::string(every_second ? "1s" : ""))
   {
   }
 };
@@ -168,8 +189,8 @@ struct partial_book_depth : public topic_path
   {
   }
   partial_book_depth(const std::string& symbol, const std::string& depth,
-                     int ms)
-      : topic_path(symbol, "depth" + depth, std::to_string(ms) + "ms")
+                     update_speed ups)
+      : topic_path(symbol, "depth" + depth, update_speed_to_string(ups))
   {
   }
   partial_book_depth(const std::string& symbol, const std::string& depth,
@@ -186,8 +207,8 @@ struct book_depth : public topic_path
       : topic_path(symbol, "depth")
   {
   }
-  book_depth(const std::string& symbol, int ms)
-      : topic_path(symbol, "depth", std::to_string(ms) + "ms")
+  book_depth(const std::string& symbol, update_speed ups)
+      : topic_path(symbol, "depth", update_speed_to_string(ups))
   {
   }
   book_depth(const std::string& symbol, const std::string& ms)
