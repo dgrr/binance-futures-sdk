@@ -1,4 +1,5 @@
 #define BINANCE_WEBSOCKET_SHARED_PTR
+#define BINANCE_WEBSOCKET_ASYNC_CLOSE
 #include <binance.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/program_options.hpp>
@@ -31,14 +32,21 @@ class WebSocket : public std::enable_shared_from_this<WebSocket>
   std::shared_ptr<binance::websocket::stream> ws_;
   binance::buffer buffer_;
   binance::json::parser parser_;
+  bool& shutdown_;
 
 public:
   WebSocket(std::string symbol, std::string interv,
-            std::shared_ptr<binance::websocket::stream> ws)
+            std::shared_ptr<binance::websocket::stream> ws, bool& shutdown)
       : ws_(ws)
+      , shutdown_(shutdown)
   {
     using namespace binance::websocket;
     ws_->subscribe(subscribe_to::kline(symbol, interv));
+  }
+
+  ~WebSocket()
+  {
+    ws_->async_close();
   }
 
   void start()
@@ -49,6 +57,9 @@ public:
 private:
   void read()
   {
+    if (shutdown_)
+      return;
+
     buffer_.clear();
     ws_->async_read(buffer_, std::bind(&WebSocket::on_read, shared_from_this(),
                                        std::placeholders::_1));
@@ -93,14 +104,15 @@ int main(int argc, char* argv[])
   config cnf = config_parser::parse_file(args["config"].as<std::string>());
 
   binance::io_context ioc;
-  auto ws = std::make_shared<binance::websocket::stream>(ioc);
+  bool shutdown = false;
+  auto ws       = std::make_shared<binance::websocket::stream>(ioc);
 
   // handle signals and stop processing when SIGINT is received
   boost::asio::signal_set signals(ioc, SIGINT);
   signals.async_wait([&](const boost::system::error_code& ec, int n) {
     boost::ignore_unused(ec);
     boost::ignore_unused(n);
-    ioc.stop();
+    shutdown = true;
   });
 
   try
@@ -109,7 +121,8 @@ int main(int argc, char* argv[])
       if (ec)
         throw ec;
       std::make_shared<WebSocket>(args["symbol"].as<std::string>(),
-                                  args["interval"].as<std::string>(), v)
+                                  args["interval"].as<std::string>(), v,
+                                  shutdown)
           ->start();
     });
 
@@ -123,6 +136,11 @@ int main(int argc, char* argv[])
   catch (const boost::system::error_code& ec)
   {
     std::cout << "error: " << ec.message() << std::endl;
+    exit(1);
+  }
+  catch (std::exception e)
+  {
+    std::cout << "exception: " << e.what() << std::endl;
     exit(1);
   }
 

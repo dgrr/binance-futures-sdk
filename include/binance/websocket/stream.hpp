@@ -67,6 +67,9 @@ public:
   uint64_t id() const;
   // closes the connection gracefully.
   really_inline void close();
+#ifdef BINANCE_WEBSOCKET_ASYNC_CLOSE
+  really_inline void async_close();
+#endif
   // async_connect creates a new connection
   //
   // if you call connect with the connection open,
@@ -115,6 +118,10 @@ private:
   void on_control_frame(boost::beast::websocket::frame_type,
                         boost::string_view);
   void on_message_sent(const boost::system::error_code& ec, size_t n);
+#ifdef BINANCE_WEBSOCKET_ASYNC_CLOSE
+  void on_close(const boost::system::error_code&);
+  void on_ssl_shutdown(const boost::system::error_code&);
+#endif
   void next_async_message();
   really_inline void reset();
 };
@@ -183,6 +190,41 @@ void stream::close()
   stream_->next_layer().shutdown(ec);
   stream_->next_layer().next_layer().close();
 }
+
+#ifdef BINANCE_WEBSOCKET_ASYNC_CLOSE
+void stream::async_close()
+{
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
+  auto self = this;
+#else
+  auto self = shared_from_this();
+#endif
+  stream_->async_close(
+      boost::beast::websocket::normal,
+      std::bind(&stream::on_close, self, std::placeholders::_1));
+}
+
+void stream::on_close(const boost::system::error_code& ec)
+{
+  boost::ignore_unused(ec);
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
+  auto self = this;
+#else
+  auto self = shared_from_this();
+#endif
+  stream_->next_layer().async_shutdown(
+      std::bind(&stream::on_ssl_shutdown, self, std::placeholders::_1));
+}
+
+void stream::on_ssl_shutdown(const boost::system::error_code& ec)
+{
+  boost::ignore_unused(ec);
+#ifdef BINANCE_WEBSOCKET_QUEUE_MESSAGES
+  connected_ = false;
+#endif
+  stream_->next_layer().next_layer().close();
+}
+#endif
 
 void stream::reset()
 {
