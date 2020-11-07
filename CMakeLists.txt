@@ -30,6 +30,7 @@ option(BINANCE_BUILD_EXAMPLES "Builds examples listed on the examples folder." O
 option(BINANCE_DISABLE_THREADING "Disables the thread library" ON)
 option(BINANCE_USE_STRING_VIEW "Use string_view as much as possible" ON)
 option(BINANCE_WEBSOCKET_SHARED_PTR "Enables `enabled_shared_from_this` in binance::websocket::stream" OFF)
+option(BINANCE_WEBSOCKET_ASYNC_CLOSE "Enables async_close function in binance::websocket::stream" OFF)
 
 if(NOT BINANCE_SIMDJSON_DIR)
     set(BINANCE_SIMDJSON_DIR "${PROJECT_SOURCE_DIR}/contrib/simdjson" CACHE STRING "simdjson location")
@@ -61,6 +62,10 @@ endif()
 
 if(BINANCE_WEBSOCKET_SHARED_PTR)
     target_compile_definitions(${PROJECT_NAME} INTERFACE BINANCE_WEBSOCKET_SHARED_PTR=1)
+endif()
+
+if(BINANCE_WEBSOCKET_ASYNC_CLOSE)
+    target_compile_definitions(${PROJECT_NAME} INTERFACE BINANCE_WEBSOCKET_ASYNC_CLOSE=1)
 endif()
 
 if(BINANCE_USE_STRING_VIEW)
