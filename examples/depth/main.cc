@@ -450,14 +450,16 @@ int main(int argc, char* argv[])
 
     api.async_read<binance::http::messages::listen_key>([&](auto* v) {
       std::cout << "Listen key: " << v->key << std::endl;
-#ifdef BINANCE_USE_STRING_VIEW
-      ws.connect(std::string(v->key));
-#else
-      ws.connect(v->key);
-#endif
       api.renew_listen_key();
-
-      std::make_shared<WebSocketSync>(ws, api, symbol, precision)->start();
+#ifdef BINANCE_USE_STRING_VIEW
+      ws.async_connect(std::string(v->key), [&](auto v, auto ec) {
+        std::make_shared<WebSocketSync>(ws, api, symbol, precision)->start();
+      });
+#else
+      ws.connect(v->key, [&](auto v, auto ec) {
+        std::make_shared<WebSocketSync>(ws, api, symbol, precision)->start();
+      });
+#endif
     });
 
     ioc.run();

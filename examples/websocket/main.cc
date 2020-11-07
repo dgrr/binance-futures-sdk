@@ -104,11 +104,13 @@ int main(int argc, char* argv[])
 
   try
   {
-    ws.connect();
-
-    std::make_shared<WebSocket>(args["symbol"].as<std::string>(),
-                                args["interval"].as<std::string>(), ws)
-        ->start();
+    ws.async_connect([&](auto v, auto ec) {
+      if (ec)
+        throw ec;
+      std::make_shared<WebSocket>(args["symbol"].as<std::string>(),
+                                  args["interval"].as<std::string>(), ws)
+          ->start();
+    });
 
     ioc.run();
   }
