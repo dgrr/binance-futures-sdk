@@ -29,6 +29,7 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/contrib/boost.json) # should use boost js
 option(BINANCE_BUILD_EXAMPLES "Builds examples listed on the examples folder." ON)
 option(BINANCE_DISABLE_THREADING "Disables the thread library" ON)
 option(BINANCE_USE_STRING_VIEW "Use string_view as much as possible" ON)
+option(BINANCE_WEBSOCKET_SHARED_PTR "Enables `enabled_shared_from_this` in binance::websocket::stream" OFF)
 
 if(BINANCE_USE_STRING_VIEW)
   add_definitions(-DBINANCE_USE_STRING_VIEW)
@@ -37,6 +38,10 @@ endif()
 
 if(NOT BINANCE_SIMDJSON_DIR)
     set(BINANCE_SIMDJSON_DIR "${PROJECT_SOURCE_DIR}/contrib/simdjson" CACHE STRING "simdjson location")
+endif()
+
+if(BINANCE_WEBSOCKET_SHARED_PTR)
+    add_definitions(-DBINANCE_WEBSOCKET_SHARED_PTR)
 endif()
 
 if(NOT BINANCE_CUSTOM_SIMDJSON_DIR)
