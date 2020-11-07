@@ -19,7 +19,9 @@
 #include <boost/optional.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url.hpp>
+#ifdef BINANCE_WEBSOCKET_QUEUE_MESSAGES
 #include <queue>
+#endif
 #include <type_traits>
 
 namespace binance
@@ -31,7 +33,11 @@ namespace websocket
 // optional for reusability
 using websocket_stream_t = std::optional<boost::beast::websocket::stream<
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>;
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
 class stream
+#else
+class stream : public std::enable_shared_from_this<stream>
+#endif
 {
   binance::io_context& ioc_;
   boost::asio::ssl::context ctx_;
@@ -45,7 +51,12 @@ class stream
 public:
   // connect_handler will be called when the connection is successfully
   // established.
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
   using connect_handler = std::function<void(stream*, binance::error)>;
+#else
+  using connect_handler =
+      std::function<void(std::shared_ptr<stream>, binance::error)>;
+#endif
 
   stream()               = delete;
   stream(const stream&)  = delete;
@@ -93,7 +104,7 @@ private:
                      boost::asio::ssl::verify_mode v_mode);
   void on_connect(connect_handler cb, std::string host, std::string endpoint,
                   boost::asio::ssl::verify_mode v_mode,
-                  const boost::system::error_code& ec,
+                  boost::system::error_code ec,
                   const boost::asio::ip::tcp::endpoint& ep);
   void on_ssl_handshake(connect_handler cb, std::string host,
                         std::string endpoint,
@@ -209,7 +220,11 @@ void stream::async_connect(stream::connect_handler cb,
 #ifdef BINANCE_DEBUG
     std::cout << "resolve error: " << ec << std::endl;
 #endif
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
     cb(this, ec);
+#else
+    cb(shared_from_this(), ec);
+#endif
     return;
   }
 
@@ -222,7 +237,7 @@ void stream::async_connect(stream::connect_handler cb,
 void stream::on_connect(stream::connect_handler cb, std::string host,
                         std::string endpoint,
                         boost::asio::ssl::verify_mode v_mode,
-                        const boost::system::error_code& ec,
+                        boost::system::error_code ec,
                         const boost::asio::ip::tcp::endpoint& ep)
 {
   boost::ignore_unused(ep);
@@ -232,15 +247,25 @@ void stream::on_connect(stream::connect_handler cb, std::string host,
     std::cout << "error connecting to " << host << ":" << port << ": " << ec
               << std::endl;
 #endif
-    throw binance::error{ec};
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
+    cb(this, ec);
+#else
+    cb(shared_from_this(), ec);
+#endif
+    return;
   }
 
   stream_->next_layer().set_verify_mode(v_mode);
   if (!::SSL_set_tlsext_host_name(stream_->next_layer().native_handle(),
                                   host.c_str()))
   {
-    cb(this, boost::system::error_code{static_cast<int>(::ERR_get_error()),
-                                       boost::asio::error::get_ssl_category()});
+    ec = boost::system::error_code{static_cast<int>(::ERR_get_error()),
+                                   boost::asio::error::get_ssl_category()};
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
+    cb(this, ec);
+#else
+    cb(shared_from_this(), ec);
+#endif
     return;
   }
 
@@ -259,7 +284,11 @@ void stream::on_ssl_handshake(stream::connect_handler cb, std::string host,
 #ifdef BINANCE_DEBUG
     std::cout << "SSL handshake error: " << ec << std::endl;
 #endif
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
     cb(this, ec);
+#else
+    cb(shared_from_this(), ec);
+#endif
     return;
   }
 
@@ -288,7 +317,11 @@ void stream::on_ws_handshake(stream::connect_handler cb, std::string host,
 #ifdef BINANCE_DEBUG
     std::cout << "websocket handshake error: " << ec << std::endl;
 #endif
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
     cb(this, ec);
+#else
+    cb(shared_from_this(), ec);
+#endif
     return;
   }
 
@@ -299,7 +332,12 @@ void stream::on_ws_handshake(stream::connect_handler cb, std::string host,
   stream_->control_callback(
       boost::beast::bind_front_handler(&stream::on_control_frame, this));
 
+#ifndef BINANCE_WEBSOCKET_SHARED_PTR
   cb(this, {});
+#else
+  cb(shared_from_this(), {});
+#endif
+
 #ifdef BINANCE_WEBSOCKET_QUEUE_MESSAGES
   next_async_message();
 #endif

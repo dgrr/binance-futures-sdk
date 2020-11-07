@@ -1,3 +1,4 @@
+#define BINANCE_WEBSOCKET_SHARED_PTR
 #include <binance.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/program_options.hpp>
@@ -27,17 +28,17 @@ void parse_args(int argc, char* argv[],
 
 class WebSocket : public std::enable_shared_from_this<WebSocket>
 {
-  binance::websocket::stream& ws_;
+  std::shared_ptr<binance::websocket::stream> ws_;
   binance::buffer buffer_;
   binance::json::parser parser_;
 
 public:
   WebSocket(std::string symbol, std::string interv,
-            binance::websocket::stream& ws)
+            std::shared_ptr<binance::websocket::stream> ws)
       : ws_(ws)
   {
     using namespace binance::websocket;
-    ws_.subscribe(subscribe_to::kline(symbol, interv));
+    ws_->subscribe(subscribe_to::kline(symbol, interv));
   }
 
   void start()
@@ -49,8 +50,8 @@ private:
   void read()
   {
     buffer_.clear();
-    ws_.async_read(buffer_, std::bind(&WebSocket::on_read, shared_from_this(),
-                                      std::placeholders::_1));
+    ws_->async_read(buffer_, std::bind(&WebSocket::on_read, shared_from_this(),
+                                       std::placeholders::_1));
   }
 
   void on_read(boost::system::error_code ec)
@@ -92,7 +93,7 @@ int main(int argc, char* argv[])
   config cnf = config_parser::parse_file(args["config"].as<std::string>());
 
   binance::io_context ioc;
-  binance::websocket::stream ws(ioc);
+  auto ws = std::make_shared<binance::websocket::stream>(ioc);
 
   // handle signals and stop processing when SIGINT is received
   boost::asio::signal_set signals(ioc, SIGINT);
@@ -104,11 +105,11 @@ int main(int argc, char* argv[])
 
   try
   {
-    ws.async_connect([&](auto v, auto ec) {
+    ws->async_connect([&](auto v, auto ec) {
       if (ec)
         throw ec;
       std::make_shared<WebSocket>(args["symbol"].as<std::string>(),
-                                  args["interval"].as<std::string>(), ws)
+                                  args["interval"].as<std::string>(), v)
           ->start();
     });
 
