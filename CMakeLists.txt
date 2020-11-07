@@ -31,17 +31,8 @@ option(BINANCE_DISABLE_THREADING "Disables the thread library" ON)
 option(BINANCE_USE_STRING_VIEW "Use string_view as much as possible" ON)
 option(BINANCE_WEBSOCKET_SHARED_PTR "Enables `enabled_shared_from_this` in binance::websocket::stream" OFF)
 
-if(BINANCE_USE_STRING_VIEW)
-  add_definitions(-DBINANCE_USE_STRING_VIEW)
-  message("Using string_view")
-endif()
-
 if(NOT BINANCE_SIMDJSON_DIR)
     set(BINANCE_SIMDJSON_DIR "${PROJECT_SOURCE_DIR}/contrib/simdjson" CACHE STRING "simdjson location")
-endif()
-
-if(BINANCE_WEBSOCKET_SHARED_PTR)
-    add_definitions(-DBINANCE_WEBSOCKET_SHARED_PTR)
 endif()
 
 if(NOT BINANCE_CUSTOM_SIMDJSON_DIR)
@@ -66,6 +57,15 @@ target_include_directories(${PROJECT_NAME} INTERFACE ${PROJECT_SOURCE_DIR}/contr
 
 if(BINANCE_DISABLE_THREADING)
   target_compile_definitions(${PROJECT_NAME} INTERFACE BOOST_ASIO_DISABLE_THREADS=1)
+endif()
+
+if(BINANCE_WEBSOCKET_SHARED_PTR)
+    target_compile_definitions(${PROJECT_NAME} INTERFACE BINANCE_WEBSOCKET_SHARED_PTR=1)
+endif()
+
+if(BINANCE_USE_STRING_VIEW)
+  target_compile_definitions(${PROJECT_NAME} INTERFACE BINANCE_USE_STRING_VIEW=1)
+  message("Using string_view")
 endif()
 
 #Find Boost dependencies
