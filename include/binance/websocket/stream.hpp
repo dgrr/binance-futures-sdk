@@ -8,7 +8,6 @@
 #include <binance/websocket/subscribe_to.hpp>
 #include <binance/websocket/unsubscribe_from.hpp>
 #include <boost/asio/connect.hpp>
-#include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/beast/core.hpp>
@@ -68,7 +67,8 @@ public:
   // closes the connection gracefully.
   really_inline void close();
 #ifdef BINANCE_WEBSOCKET_ASYNC_CLOSE
-  really_inline void async_close();
+  really_inline void async_close(
+      std::function<void(boost::system::error_code)> cb);
 #endif
   // async_connect creates a new connection
   //
@@ -90,8 +90,9 @@ public:
   template<typename... Topic>
   void unsubscribe(Topic... topics);
 
-  template<class Cb>
-  really_inline void async_read(binance::buffer& buffer, Cb&& cb)
+  really_inline void async_read(
+      binance::buffer& buffer,
+      std::function<void(boost::system::error_code)> cb)
   {
     // TODO: Parse JSON here? We can pass the json::object& as argument on the
     // callback.
@@ -119,8 +120,10 @@ private:
                         boost::string_view);
   void on_message_sent(const boost::system::error_code& ec, size_t n);
 #ifdef BINANCE_WEBSOCKET_ASYNC_CLOSE
-  void on_close(const boost::system::error_code&);
-  void on_ssl_shutdown(const boost::system::error_code&);
+  void on_close(std::function<void(boost::system::error_code)> cb,
+                const boost::system::error_code&);
+  void on_ssl_shutdown(std::function<void(boost::system::error_code)> cb,
+                       const boost::system::error_code&);
 #endif
   void next_async_message();
   really_inline void reset();
@@ -192,7 +195,7 @@ void stream::close()
 }
 
 #ifdef BINANCE_WEBSOCKET_ASYNC_CLOSE
-void stream::async_close()
+void stream::async_close(std::function<void(boost::system::error_code)> cb)
 {
 #ifndef BINANCE_WEBSOCKET_SHARED_PTR
   auto self = this;
@@ -201,28 +204,30 @@ void stream::async_close()
 #endif
   stream_->async_close(
       boost::beast::websocket::normal,
-      std::bind(&stream::on_close, self, std::placeholders::_1));
+      std::bind(&stream::on_close, self, cb, std::placeholders::_1));
 }
 
-void stream::on_close(const boost::system::error_code& ec)
+void stream::on_close(std::function<void(boost::system::error_code)> cb,
+                      const boost::system::error_code& ec)
 {
-  boost::ignore_unused(ec);
 #ifndef BINANCE_WEBSOCKET_SHARED_PTR
   auto self = this;
 #else
   auto self = shared_from_this();
 #endif
   stream_->next_layer().async_shutdown(
-      std::bind(&stream::on_ssl_shutdown, self, std::placeholders::_1));
+      std::bind(&stream::on_ssl_shutdown, self, cb, std::placeholders::_1));
 }
 
-void stream::on_ssl_shutdown(const boost::system::error_code& ec)
+void stream::on_ssl_shutdown(std::function<void(boost::system::error_code)> cb,
+                             const boost::system::error_code& ec)
 {
-  boost::ignore_unused(ec);
 #ifdef BINANCE_WEBSOCKET_QUEUE_MESSAGES
   connected_ = false;
 #endif
   stream_->next_layer().next_layer().close();
+
+  cb(ec);
 }
 #endif
 

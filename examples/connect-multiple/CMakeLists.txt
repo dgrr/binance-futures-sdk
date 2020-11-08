@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.1)
-project(binance-listen-multi-example)
+project(binance-connect-multi-example)
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/main.cc)
 
