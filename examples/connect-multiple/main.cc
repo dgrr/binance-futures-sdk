@@ -53,10 +53,8 @@ public:
   {
     for (auto& ws : wss_)
     {
-      using namespace std::placeholders;
       ws = std::make_shared<binance::websocket::stream>(ioc_);
-      ws->async_connect(
-          std::bind(&WebSocket::on_connect, shared_from_this(), _1, _2));
+      connect(ws);
     }
   }
 
@@ -70,6 +68,13 @@ private:
     auto self = shared_from_this();
     for (auto& ws : wss_)
       ws->async_close([self](auto ec) { boost::ignore_unused(ec); });
+  }
+
+  void connect(std::shared_ptr<binance::websocket::stream> ws)
+  {
+    using namespace std::placeholders;
+    ws->async_connect(
+        std::bind(&WebSocket::on_connect, shared_from_this(), _1, _2));
   }
 
   void on_connect(std::shared_ptr<binance::websocket::stream> ws,
@@ -87,6 +92,15 @@ private:
   {
     if (shutdown_)
       return shutdown();
+
+    // reconnect after 5 minutes
+    if (std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now() - ws->connected_at())
+        > std::chrono::minutes(5))
+    {
+      connect(ws);
+      return;
+    }
 
     decltype(buffers_)::value_type buffer = nullptr;
     if (buffers_.empty())

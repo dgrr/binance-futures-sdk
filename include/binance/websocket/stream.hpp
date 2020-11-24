@@ -46,6 +46,7 @@ class stream : public std::enable_shared_from_this<stream>
   bool connected_;
 #endif
   uint64_t id_;
+  time_point_t connected_at_;
 
 public:
   // connect_handler will be called when the connection is successfully
@@ -64,6 +65,9 @@ public:
   ~stream();
 
   uint64_t id() const;
+  // connected_at returns the time_point_t when the connection
+  // was first established.
+  time_point_t connected_at() const;
   // closes the connection gracefully.
   really_inline void close();
 #ifdef BINANCE_WEBSOCKET_ASYNC_CLOSE
@@ -148,6 +152,11 @@ stream::~stream()
 uint64_t stream::id() const
 {
   return id_;
+}
+
+time_point_t stream::connected_at() const
+{
+  return connected_at_;
 }
 
 template<class Topic>
@@ -371,6 +380,7 @@ void stream::on_ws_handshake(stream::connect_handler cb, std::string host,
 #endif
     return;
   }
+  connected_at_ = std::chrono::system_clock::now();
 
 #ifdef BINANCE_WEBSOCKET_QUEUE_MESSAGES
   connected_ = true;
