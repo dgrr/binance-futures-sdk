@@ -572,7 +572,7 @@ void stream::async_call(
 #endif
   prepare_request<ReqBody, Msg, C>(*req, msg);
   if constexpr (!std::is_same_v<ReqBody, http::empty_body>)
-    req->set(http::field::content_length, req->body().size());
+    req->set(http::field::content_length, std::to_string(req->body().size()));
 
   queue_.emplace_back(req, msg, std::move(cb));
 
