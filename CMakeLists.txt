@@ -84,11 +84,19 @@ if(Boost_FOUND)
   target_link_libraries(${PROJECT_NAME} INTERFACE ${Boost_LIBRARIES})
 endif()
 
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+  set(OPENSSL_USE_STATIC_LIBS true)
+  set(OPENSSL_ROOT_DIR /usr/local/opt/openssl)
+endif()
+
 #Find OpenSSL
 find_package(OpenSSL REQUIRED)
 
 #Include and link OpenSSL
 if(OPENSSL_FOUND)
+  if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    target_include_directories(${PROJECT_NAME} INTERFACE "/usr/local/opt/openssl/include/")
+  endif()
   target_include_directories(${PROJECT_NAME} INTERFACE ${OPENSSL_INCLUDE_DIRS})
   target_link_libraries(${PROJECT_NAME} INTERFACE ${OPENSSL_LIBRARIES})
 endif()
