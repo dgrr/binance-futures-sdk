@@ -85,14 +85,27 @@ std::ostream& operator<<(std::ostream& os, const float_type& f)
 
 struct market_data
 {
-  std::multimap<float_type, std::shared_ptr<price_point>> bids;  // ASC
-  std::multimap<float_type, std::shared_ptr<price_point>,
-                std::greater<float_type>>
-      asks;  // DESC
+  std::multimap<float_type, double> bids;  // ASC
+  std::multimap<float_type, double,
+                std::greater<float_type>> asks;  // DESC
   int precision;
   float_type convert_price(double p)
   {
     return float_type(p, precision);
+  }
+};
+
+struct queued_message
+{
+  int64_t final_id;
+  int64_t last_final_id;
+  std::vector<std::pair<double, double>> bids;
+  std::vector<std::pair<double, double>> asks;
+
+  queued_message(int64_t last, int64_t id)
+      : last_final_id(last)
+      , final_id(id)
+  {
   }
 };
 
@@ -102,23 +115,99 @@ class WebSocket : public std::enable_shared_from_this<WebSocket>
   binance::http::stream& api_;
   binance::buffer buffer_;
   binance::json::parser parser_;
-  std::shared_ptr<market_data> data_;
+
+  std::vector<queued_message> queued_messages_;
+
+  std::string symbol_;
+  market_data data_;
+  int64_t last_time_;
+  int64_t final_id_;
 
 public:
   WebSocket(binance::websocket::stream& ws, binance::http::stream& api,
-            std::shared_ptr<market_data> data)
+            std::string s, int precision)
       : ws_(ws)
       , api_(api)
-      , data_(data)
+      , symbol_(s)
+      , final_id_(0)
+      , last_time_(0)
   {
+    data_.precision = precision;
   }
 
   void start()
   {
+    ws_.subscribe(binance::websocket::subscribe_to::book_depth(symbol_));
+    get_book();
     read();
   }
 
 private:
+  void get_book()
+  {
+    final_id_ = 0;
+    data_.asks.clear();
+    data_.bids.clear();
+
+    std::cout << "Getting orderbook" << std::endl;
+
+    api_.async_read<binance::http::messages::orderbook>(
+        std::bind(&WebSocket::on_orderbook_read, shared_from_this(),
+                  std::placeholders::_1),
+        symbol_, 1000);
+  }
+
+  void on_orderbook_read(binance::http::messages::orderbook* ob)
+  {
+    for (auto& ask : ob->asks)
+    {
+      auto v = data_.convert_price(ask.price);
+      data_.asks.insert({v, ask.qty});
+    }
+
+    for (auto& bid : ob->bids)
+    {
+      auto v = data_.convert_price(bid.price);
+      data_.bids.insert({v, bid.qty});
+    }
+
+    final_id_  = ob->last_update_id;
+    last_time_ = ob->output_time.time_since_epoch().count() / 1000000;
+
+    std::sort(queued_messages_.begin(), queued_messages_.end(),
+              [](const auto& a, const auto& b) -> bool {
+                return a.final_id < b.final_id;
+              });
+
+    for (auto& msg : queued_messages_)
+    {
+      if (msg.final_id < ob->last_update_id || final_id_ == msg.final_id)
+        continue;
+
+      for (auto& ask : msg.asks)
+      {
+        binance::websocket::messages::price_point pp;
+        pp.price = ask.first;
+        pp.qty   = ask.second;
+
+        handle_book_event(data_.asks, pp);
+      }
+
+      for (auto& bid : msg.bids)
+      {
+        binance::websocket::messages::price_point pp;
+        pp.price = bid.first;
+        pp.qty   = bid.second;
+
+        handle_book_event(data_.bids, pp);
+      }
+
+      final_id_ = msg.final_id;
+    }
+
+    queued_messages_.clear();
+  }
+
   void read()
   {
     buffer_.clear();
@@ -138,267 +227,80 @@ private:
     if (jb["e"].get(e) == simdjson::SUCCESS && e == "depthUpdate")
     {
       binance::websocket::messages::book_depth bd;
-
       bd = jb;
-      for (auto& v : bd.bids)
-      {
-        float_type price = data_->convert_price(v.price);
 
-        auto it = data_->bids.find(price);
-        if (it == data_->bids.end())
-        {
-          if (v.qty > 0)
-            data_->bids.insert(
-                {price, std::make_shared<price_point>(v.price, v.qty)});
-          continue;
-        }
+      int64_t ts = bd.event_time.time_since_epoch().count() / 1000000;
+      if (ts < last_time_)
+        return;
+      last_time_ = ts;
 
-        if (v.qty == 0)
-        {
-          data_->bids.erase(it);
-        }
-        else
-        {
-          it->second->size = v.qty;
-        }
-      }
-
-      for (auto& v : bd.asks)
-      {
-        float_type price = data_->convert_price(v.price);
-
-        auto it = data_->asks.find(price);
-        if (it == data_->asks.end())
-        {
-          if (v.qty > 0)
-            data_->asks.insert(
-                {price, std::make_shared<price_point>(v.price, v.qty)});
-          continue;
-        }
-
-        if (v.qty == 0)
-        {
-          data_->asks.erase(it);
-        }
-        else
-        {
-          it->second->size = v.qty;
-        }
-      }
-
-      std::cout << "Spread: "
-                << data_->asks.rbegin()->second->price
-                       - data_->bids.rbegin()->second->price
-                << "\r" << std::flush;
+      handle_depth(&bd);
     }
 
     read();
   }
-};
 
-class WebSocketSync : public std::enable_shared_from_this<WebSocketSync>
-{
-  binance::websocket::stream& ws_;
-  binance::http::stream& api_;
-  binance::buffer buffer_;
-  binance::json::parser parser_;
-
-  std::vector<std::string> queued_messages_;
-  std::shared_ptr<market_data> data_;
-  std::string symbol_;
-  bool disabled_;
-
-public:
-  WebSocketSync(binance::websocket::stream& ws, binance::http::stream& api,
-                std::string symbol, int precision)
-      : ws_(ws)
-      , api_(api)
-      , symbol_(symbol)
-      , disabled_(false)
+  void handle_depth(binance::websocket::messages::book_depth* bd)
   {
-    data_            = std::make_shared<market_data>();
-    data_->precision = precision;
-    ws.subscribe(binance::websocket::subscribe_to::book_depth(symbol));
-  }
-
-  ~WebSocketSync()
-  {
-    std::make_shared<WebSocket>(ws_, api_, data_)->start();
-  }
-
-  void start()
-  {
-    read();
-  }
-
-private:
-  void read()
-  {
-    buffer_.clear();
-
-    if (disabled_)
-      return;
-
-    using namespace std::placeholders;
-    ws_.async_read(buffer_,
-                   std::bind(&WebSocketSync::on_read, shared_from_this(), _1));
-  }
-
-  void on_read(boost::system::error_code ec)
-  {
-    if (ec)
-      throw ec;
-
-    if (disabled_)  // event received after the stream has been disabled
+    if (final_id_ == 0)
     {
-      const binance::json::object& jb = parser_.parse(buffer_).root();
-      binance::websocket::messages::book_depth bd;
+      queued_message qm(bd->last_final_id, bd->final_id);
 
-      bd = jb;
-      for (auto& v : bd.bids)
+      for (auto& ask : bd->asks)
       {
-        float_type price = data_->convert_price(v.price);
-
-        auto it = data_->bids.find(price);
-        if (it == data_->bids.end())
-        {
-          if (v.qty > 0)
-            data_->bids.insert(
-                {price, std::make_shared<price_point>(v.price, v.qty)});
-          continue;
-        }
-
-        if (v.qty == 0)
-        {
-          data_->bids.erase(it);
-        }
-        else
-        {
-          it->second->size = v.qty;
-        }
+        qm.asks.emplace_back(ask.price, ask.qty);
       }
 
-      for (auto& v : bd.asks)
+      for (auto& bid : bd->bids)
       {
-        float_type price = data_->convert_price(v.price);
-
-        auto it = data_->asks.find(price);
-        if (it == data_->asks.end())
-        {
-          if (v.qty > 0)
-            data_->asks.insert(
-                {price, std::make_shared<price_point>(v.price, v.qty)});
-          continue;
-        }
-
-        if (v.qty == 0)
-        {
-          data_->asks.erase(it);
-        }
-        else
-        {
-          it->second->size = v.qty;
-        }
+        qm.bids.emplace_back(bid.price, bid.qty);
       }
+
+      queued_messages_.push_back(qm);
 
       return;
     }
 
-    std::string msg = boost::beast::buffers_to_string(buffer_.data());
-    queued_messages_.push_back(msg);
-
-    if (queued_messages_.size() == 10)
+    if (bd->last_final_id != final_id_)
     {
-      using namespace std::placeholders;
-      api_.async_read<binance::http::messages::orderbook>(
-          std::bind(&WebSocketSync::on_orderbook_read, this, _1), symbol_,
-          1000);
+      std::cout << "Wrong last_final_id" << std::endl;
+      get_book();
+      return;
     }
+    final_id_ = bd->final_id;
 
-    read();
+    for (auto& v : bd->asks)
+      handle_book_event(data_.asks, v);
+    for (auto& v : bd->bids)
+      handle_book_event(data_.bids, v);
+
+    std::cout << "Spread: "
+              << data_.asks.rbegin()->first - data_.bids.rbegin()->first << "\r"
+              << std::flush;
   }
 
-  void on_orderbook_read(binance::http::messages::orderbook* book)
+  template<class T>
+  void handle_book_event(T& mm,
+                         const binance::websocket::messages::price_point& v)
   {
-    std::string_view e;
-    int64_t u;
-    std::vector<std::string> msgs;
+    static_assert(
+        std::is_same_v<typename T::key_type, float_type>,
+        "handle_book_operation only supports a multimap with key_type "
+        "= float_type");
 
-    // filter out queued_messages_
-    for (const std::string& v : queued_messages_)
+    auto price = data_.convert_price(v.price);
+    auto it    = mm.find(price);
+    if (it == mm.end())
     {
-      const binance::json::object& jb = parser_.parse(v).root();
-
-      if (jb["e"].get(e) == simdjson::SUCCESS
-          && jb["u"].get(u) == simdjson::SUCCESS && u > book->last_update_id)
-      {
-        // std::cout << book->last_update_id << " || " << U <<
-        // std::endl;
-        msgs.push_back(v);
-      }
+      if (v.qty > 0)
+        mm.insert({price, v.qty});
+      return;
     }
 
-    // insert the snapshot to the market data
-    for (auto& bid : book->bids)
-    {
-      float_type d = data_->convert_price(bid.price);
-      data_->bids.insert(
-          {d, std::make_shared<price_point>(bid.price, bid.qty)});
-    }
-
-    for (auto& ask : book->asks)
-    {
-      float_type d = data_->convert_price(ask.price);
-      data_->asks.insert(
-          {d, std::make_shared<price_point>(ask.price, ask.qty)});
-    }
-
-    // process changes
-    for (const std::string& v : msgs)
-    {
-      const binance::json::object& jb = parser_.parse(v).root();
-      binance::websocket::messages::book_depth bd;
-      std::cout << "Processing: " << v << std::endl;
-
-      bd = jb;
-      for (auto& v : bd.bids)
-      {
-        float_type price = data_->convert_price(v.price);
-
-        auto it = data_->bids.find(price);
-        if (it == data_->bids.end())
-          continue;  // not found
-
-        if (v.qty == 0)
-        {
-          data_->bids.erase(it);
-        }
-        else
-        {
-          it->second->size = v.qty;
-        }
-      }
-
-      for (auto& v : bd.asks)
-      {
-        float_type price = data_->convert_price(v.price);
-
-        auto it = data_->asks.find(price);
-        if (it == data_->asks.end())
-          continue;  // not found
-
-        if (v.qty == 0)
-        {
-          data_->asks.erase(it);
-        }
-        else
-        {
-          it->second->size = v.qty;
-        }
-      }
-    }
-
-    disabled_ = true;
+    if (v.qty == 0)
+      mm.erase(it);
+    else
+      it->second = v.qty;
   }
 };
 
@@ -453,11 +355,11 @@ int main(int argc, char* argv[])
       api.renew_listen_key();
 #ifdef BINANCE_USE_STRING_VIEW
       ws.async_connect(std::string(v->key), [&](auto v, auto ec) {
-        std::make_shared<WebSocketSync>(ws, api, symbol, precision)->start();
+        std::make_shared<WebSocket>(ws, api, symbol, precision)->start();
       });
 #else
       ws.connect(v->key, [&](auto v, auto ec) {
-        std::make_shared<WebSocketSync>(ws, api, symbol, precision)->start();
+        std::make_shared<WebSocket>(ws, api, symbol, precision)->start();
       });
 #endif
     });
