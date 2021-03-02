@@ -4,7 +4,6 @@
 #include <boost/asio/signal_set.hpp>
 #include <boost/program_options.hpp>
 #include <chrono>
-#include <config.hpp>
 #include <iostream>
 
 void parse_args(int argc, char* argv[],
@@ -46,7 +45,9 @@ public:
 
   ~WebSocket()
   {
-    ws_->async_close();
+    ws_->async_close([](auto&& ec) {
+	std::cout << "error closing" << ec.message() << std::endl;
+	});
   }
 
   void start()
@@ -100,8 +101,6 @@ int main(int argc, char* argv[])
     std::cout << desc << std::endl;
     return 0;
   }
-
-  config cnf = config_parser::parse_file(args["config"].as<std::string>());
 
   binance::io_context ioc;
   bool shutdown = false;
